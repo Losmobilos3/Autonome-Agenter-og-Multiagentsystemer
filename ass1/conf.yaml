@@ -10,15 +10,22 @@ robot:
   - number: 1
     kinematics: {name: 'diff'}  # omni, diff, acker
     shape: {name: 'circle', radius: 0.2}  # radius
-    state: [1, 1, 0]  # x, y, theta
+    state: [3, 3, 0]  # x, y, theta
     goal: [9, 9, 0]  # x, y, theta
-    behavior: {name: 'dash'} # move toward to the goal directly 
+    behavior: {name: 'RL_Circle'}
     color: 'g' # green
+    plot:
+      show_trail: true
+      show_goal: true
+      trail_fill: true
+      trail_alpha: 0.2
+      show_trajectory: false
+      keep_trail_length: 15
 
-  - number: 1
-    kinematics: {name: 'diff'}  # omni, diff, acker
-    shape: {name: 'circle', radius: 0.2}  # radius
-    state: [2, 1, 0]  # x, y, theta
-    goal: [8, 9, 0]  # x, y, theta
-    behavior: {name: 'dash'} # move toward to the goal directly 
-    color: 'r' # green
+  # - number: 1
+  #   kinematics: {name: 'diff'}  # omni, diff, acker
+  #   shape: {name: 'circle', radius: 0.2}  # radius
+  #   state: [2, 1, 0]  # x, y, theta
+  #   goal: [8, 9, 0]  # x, y, theta
+  #   behavior: {name: 'dash'} # move toward to the goal directly 
+  #   color: 'r' # green
