@@ -10,9 +10,9 @@ robot:
   - number: 1
     kinematics: {name: 'diff'}  # omni, diff, acker
     shape: {name: 'circle', radius: 0.2}  # radius
-    state: [3, 3, 0]  # x, y, theta
-    goal: [9, 9, 0]  # x, y, theta
-    behavior: {name: 'RL_Circle'}
+    state: [1, 1, 0.7]  # x, y, theta
+    goal: [5, 5, 0]  # x, y, theta
+    behavior: {name: 'circle_basic'}
     color: 'g' # green
     plot:
       show_trail: true
