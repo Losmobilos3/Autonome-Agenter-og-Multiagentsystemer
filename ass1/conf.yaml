@@ -12,7 +12,7 @@ robot:
     shape: {name: 'circle', radius: 0.2}  # radius
     state: [1, 1, 0.7]  # x, y, theta
     goal: [5, 5, 0]  # x, y, theta
-    behavior: {name: 'circle_basic'}
+    behavior: {name: 'RL_Circle'}
     color: 'g' # green
     plot:
       show_trail: true
