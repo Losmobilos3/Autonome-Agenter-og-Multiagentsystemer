@@ -19,13 +19,7 @@ def beh_diff_RL_circle(ego_object, radius=2, external_objects = None, **kwargs):
     
 
     learner = Learner()
-    distFromCenter, _ = relative_position(ego_object.goal, ego_object.state)
-    if distFromCenter < radius - 0.05:
-       currState = 0
-    elif distFromCenter > radius + 0.05:
-       currState = 0
-    else:
-       currState = 1
+    currState, distFromCenter = get_state(ego_object, radius, ego_object.goal)
 
     action = learner.update_Q(currState, distFromCenter, radius)
 
@@ -40,8 +34,30 @@ def beh_diff_RL_circle(ego_object, radius=2, external_objects = None, **kwargs):
     # Return velocity and angle
     return np.array([[linear], [angular]])
 
-def judge_angle(angle):
-    pass
+def get_state(ego_object, radius, goal):
+    dist_from_center, angle_to_center = relative_position(goal, ego_object.state)
+    
+    # Discretize distance (3 zones)
+    if dist_from_center < radius - 0.1:
+        dist_state = 0  # too close
+    elif dist_from_center > radius + 0.1:
+        dist_state = 2  # too far  
+    else:
+        dist_state = 1  # good distance
+    
+    # Discretize angular velocity direction (4 directions)
+    robot_heading = ego_object.state[2]
+    desired_tangent = angle_to_center + np.pi/2  # perpendicular to radius
+    heading_error = WrapToPi(desired_tangent - robot_heading)
+    
+    if heading_error < -np.pi/4:
+        heading_state = 0
+    elif heading_error < np.pi/4:
+        heading_state = 1
+    else:
+        heading_state = 2
+        
+    return dist_state * 3 + heading_state, dist_from_center  # Combined state (0-8)
 
 
 class Learner(object):
@@ -49,10 +65,9 @@ class Learner(object):
   def __new__(cls):
     if not hasattr(cls, 'instance'):
       cls.instance = super(Learner, cls).__new__(cls)
-      cls.Q = np.random.rand(2, 3) # 3 states, 3 actions (right, left, straight)
-      cls.Q[1, :] = np.zeros(3)
+      cls.Q = np.random.rand(9, 3) # 9 states, 3 actions (right, left, straight)
       cls.alpha = 0.1   # learning rate
-      cls.gamma = 0.9   # discount factor
+      cls.gamma = 0.2   # discount factor
 
       # Last values
       cls.lastState = None
@@ -73,16 +88,7 @@ class Learner(object):
         return action
     else:
         # Update Q-table based on previous experience
-        print("SE HER - Updating Q-table:", self.lastState, self.lastAction, self.lastR)
         self.Q[self.lastState, self.lastAction] = self.Q[self.lastState, self.lastAction] + self.alpha * (self.lastR + self.gamma * np.max(self.Q[currState, :]) - self.Q[self.lastState, self.lastAction])
-        
-        # If in terminal state, reset
-        if currState == 1:
-            self.lastState = None
-            self.lastAction = None
-            self.lastR = None
-            return 1
-            
         # Update for next iteration
         self.lastState = currState
         action = np.argmax(self.Q[currState, :])
