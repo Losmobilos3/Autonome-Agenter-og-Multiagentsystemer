@@ -17,8 +17,7 @@ def beh_diff_RL_circle(ego_object, radius=2, external_objects = None, **kwargs):
         np.array: Velocity [linear, angular] (2x1).
     """
     
-
-    learner = Learner()
+    learner = Learner(ego_object.id)
     currState, distFromCenter = get_state(ego_object, radius, ego_object.goal)
 
     action = learner.update_Q(currState, distFromCenter, radius)
@@ -36,7 +35,7 @@ def beh_diff_RL_circle(ego_object, radius=2, external_objects = None, **kwargs):
 
 def get_state(ego_object, radius, goal):
     dist_from_center, angle_to_center = relative_position(goal, ego_object.state)
-    
+    print("Angle: ", angle_to_center)
     # Discretize distance (3 zones)
     if dist_from_center < radius - 0.1:
         dist_state = 0  # too close
@@ -50,9 +49,9 @@ def get_state(ego_object, radius, goal):
     desired_tangent = angle_to_center + np.pi/2  # perpendicular to radius
     heading_error = WrapToPi(desired_tangent - robot_heading)
     
-    if heading_error < -np.pi/4:
+    if heading_error < -np.pi/8:
         heading_state = 0
-    elif heading_error < np.pi/4:
+    elif heading_error < np.pi/8:
         heading_state = 1
     else:
         heading_state = 2
@@ -62,38 +61,46 @@ def get_state(ego_object, radius, goal):
 
 class Learner(object):
   # INITIALIZE LEARNER
-  def __new__(cls):
-    if not hasattr(cls, 'instance'):
-      cls.instance = super(Learner, cls).__new__(cls)
+  def __new__(cls, id):
+    if not hasattr(cls, 'instances'):
+      cls.instances = {}
+    if id not in cls.instances:
+      cls.instances[id] = super(Learner, cls).__new__(cls)
       cls.Q = np.random.rand(9, 3) # 9 states, 3 actions (right, left, straight)
       cls.alpha = 0.1   # learning rate
-      cls.gamma = 0.2   # discount factor
+      cls.gamma = 0.4   # discount factor
 
       # Last values
       cls.lastState = None
       cls.lastAction = None
       cls.lastR = None
-    return cls.instance
+    return cls.instances[id]
   
   # DEFINE LEARNING/DECISION FUNCTION
-  # TODO: Maybe split into two functions
   def update_Q(self, currState, distance, radius=0.5):
+
     # Call with first currState different from 1
-    if (self.lastState is None) or (self.lastAction is None) or (self.lastR is None):
-        print("SE HER - First call, initializing values")
-        self.lastState = currState
+    if self.is_first():
+        return self.take_action(currState, distance, radius)
+
+    # Update Q-table based on previous experience
+    self.Q[self.lastState, self.lastAction] = self.Q[self.lastState, self.lastAction] + self.alpha * (self.lastR + self.gamma * np.max(self.Q[currState, :]) - self.Q[self.lastState, self.lastAction])
+
+    return self.take_action(currState, distance, radius)
+    
+  def take_action(self, currState, distance, radius):
+
+        # Determine the action based on the Q-table
         action = np.argmax(self.Q[currState, :])
-        self.lastAction = action
-        self.lastR = -abs(distance - radius)  # Reward is higher the closer we are to the desired radius
-        return action
-    else:
-        # Update Q-table based on previous experience
-        self.Q[self.lastState, self.lastAction] = self.Q[self.lastState, self.lastAction] + self.alpha * (self.lastR + self.gamma * np.max(self.Q[currState, :]) - self.Q[self.lastState, self.lastAction])
+
         # Update for next iteration
         self.lastState = currState
-        action = np.argmax(self.Q[currState, :])
         self.lastAction = action
-        self.lastR = -abs(distance - radius)
-        return action
+        self.lastR = -abs(distance - radius) # Reward is higher the closer we are to the desired radius
 
+        return action
+    
+  def is_first(self):
+     return self.lastState is None or self.lastAction is None or self.lastR is None
+     
   
