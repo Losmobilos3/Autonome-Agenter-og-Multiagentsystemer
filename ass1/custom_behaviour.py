@@ -18,6 +18,7 @@ def beh_diff_RL_circle(ego_object, radius=2, external_objects = None, **kwargs):
     """
     
     agent = Agent(ego_object, radius)
+
     currState, distFromCenter = get_state(ego_object, radius)
 
     action = agent.learner.update_Q(currState, distFromCenter, radius)
@@ -28,8 +29,6 @@ def beh_diff_RL_circle(ego_object, radius=2, external_objects = None, **kwargs):
     # Profit!
     linear = 1 # Scale linear velocity
     angular = -1 if action == 0 else 1 if action == 2 else 0
-
-    agent.update_metrics()
 
     # Return velocity and angle
     return np.array([[linear], [angular]])
@@ -67,19 +66,18 @@ class Agent(object):
             agent = super(Agent, cls).__new__(cls)
             agent.learner = Learner()
             agent.metrics = {}
-            agent.ego_object = ego_object
             agent.r = desired_radius
             cls.instances[ego_object.id] = agent
         return cls.instances[ego_object.id]
     
-    def update_metrics(self):
-        self._update_mse()
-        self._update_time_crashed()
+    def update_metrics(self, ego_object):
+        self._update_mse(ego_object)
+        self._update_time_crashed(ego_object)
 
-    def _update_mse(self):
+    def _update_mse(self, ego_object):
         if 'mse_stats' not in self.metrics:
             self.metrics['mse_stats'] = {"cumulated_error": 0, "count": 0}
-        d, _ = relative_position(self.ego_object.goal, self.ego_object.state)
+        d, _ = relative_position(ego_object.goal, ego_object.state)
         self.metrics['mse_stats']["cumulated_error"] += (self.r-d)**2
         self.metrics['mse_stats']["count"] += 1
 
@@ -89,21 +87,24 @@ class Agent(object):
             return None
         return self.metrics['mse_stats']["cumulated_error"] / self.metrics['mse_stats']["count"]
     
-    def _update_time_crashed(self):
+    def _update_time_crashed(self, ego_object):
         if 'crash_stats' not in self.metrics:
-            self.metrics['crash_stats'] = {"crashed_time": 0, "total_time": time.time()}
-        if self.ego_object.collision_flag:
-            self.metrics['crashed_time'] += time.time() - self.metrics['crash_stats']['total_time'] # TODO: set to time
-
+            self.metrics['crash_stats'] = {"crashed": False, "crashed_time": 0, "total_time": time.time()}
+        if ego_object.collision_flag:
+            self.metrics["crash_stats"]["crashed"] = True
+            self.metrics["crash_stats"]['crashed_time'] += time.time() - self.metrics['crash_stats']['total_time'] # TODO: set to time
     def read_crashed(self):
-        return self.ego_object.collision_flag
+        return self.metrics["crash_stats"]["crashed"]
     
     def read_crash_time(self):
         if 'crash_stats' not in self.metrics:
             print("ERROR: NO CRASH STATS AVAILABLE!")
             return None
         return self.metrics['crash_stats']['crashed_time']
-
+    
+    def reset_metrics(self):
+        self.metrics = {}
+    
 class Learner:
   def __init__(self):
       self.Q = np.random.rand(9, 3) # 9 states, 3 actions (right, left, straight)
