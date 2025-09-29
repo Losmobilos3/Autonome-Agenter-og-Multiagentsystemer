@@ -19,7 +19,7 @@ for e in range(episodes):
         agent.reset_metrics()
 
     # Run the episode
-    for i in range(100 + e * 50): # run the simulation for 300 steps
+    for i in range(100 + e * 50): # run the simulation
         env.step()  # update the environment
         record_metrics(env.robot_list)
         env.render() # render the environment

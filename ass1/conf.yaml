@@ -6,22 +6,6 @@ world:
   sample_time: 0.1  # 10 Hz for render and data extraction 
   offset: [0, 0] # the offset of the world on x and y 
 
-# robot:
-#   - number: 1
-#     kinematics: {name: 'diff'}  # omni, diff, acker
-#     shape: {name: 'circle', radius: 0.2}  # radius
-#     state: [3, 3, 0]  # x, y, theta
-#     goal: [5, 5, 0]  # x, y, theta
-#     behavior: {name: 'RL_Circle'}
-#     color: 'g' # green
-#     plot:
-#       show_trail: true
-#       show_goal: true
-#       trail_fill: true
-#       trail_alpha: 0.2
-#       show_trajectory: false
-#       keep_trail_length: 15
-
 robot:
   - number: 10
     kinematics: {name: 'diff'}  # omni, diff, acker

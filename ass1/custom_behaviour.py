@@ -23,10 +23,6 @@ def beh_diff_RL_circle(ego_object, radius=2, external_objects = None, **kwargs):
 
     action = agent.learner.update_Q(currState, distFromCenter, radius)
 
-    # TODO: implement q-learning (TD-learning + exploration)
-    # States: i goldylock zone, too close to center, too far from center
-
-    # Profit!
     linear = 1 # Scale linear velocity
     angular = -1 if action == 0 else 1 if action == 2 else 0
 
@@ -43,7 +39,7 @@ def get_state(ego_object, radius):
     else:
         dist_state = 1  # good distance
     
-    # Discretize angular velocity direction (4 directions)
+    # Discretize angular velocity direction (3 directions)
     robot_heading = ego_object.state[2]
     desired_tangent = angle_to_center + np.pi/2  # perpendicular to radius
     heading_error = WrapToPi(desired_tangent - robot_heading)
@@ -92,7 +88,8 @@ class Agent(object):
             self.metrics['crash_stats'] = {"crashed": False, "crashed_time": 0, "total_time": time.time()}
         if ego_object.collision_flag:
             self.metrics["crash_stats"]["crashed"] = True
-            self.metrics["crash_stats"]['crashed_time'] += time.time() - self.metrics['crash_stats']['total_time'] # TODO: set to time
+            self.metrics["crash_stats"]['crashed_time'] += time.time() - self.metrics['crash_stats']['total_time']
+            
     def read_crashed(self):
         return self.metrics["crash_stats"]["crashed"]
     
@@ -108,8 +105,8 @@ class Agent(object):
 class Learner:
   def __init__(self):
       self.Q = np.random.rand(9, 3) # 9 states, 3 actions (right, left, straight)
-      self.alpha = 0.1   # learning rate
-      self.gamma = 0.4   # discount factor
+      self.alpha = 0.1              # learning rate
+      self.gamma = 0.4              # discount factor
 
       # Last values
       self.lastState = None
