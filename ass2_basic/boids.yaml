@@ -4,7 +4,7 @@ world:
   step_time: 0.1
   sample_time: 0.1
   offset: [0, 0]
-  collision_mode: 'stop'
+  collision_mode: 'unobstructed'
   control_mode: 'auto'
 
 robot:
@@ -20,15 +20,26 @@ robot:
   # Followers
   - number: 5
     distribution: {name: 'random', range_low: [10, 10, -3.14], range_high: [40, 40, 3.14]}
-    kinematics: {name: 'diff'}
-    behavior: {name: 'follower', radius: 10.0}
-    vel_max: [ 3, 3.14 ]
-    vel_min: [ -3, -3.14 ]
+    kinematics: {name: 'omni'}
+    behavior: {
+      name: 'follower',
+      radius: 8.0,
+      separation_strength: 1,
+      alignment_strength: 0.5,
+      cohesion_strength: 0.2,
+      separation_radius: 2.0,
+      turn_factor: 2
+    }
+    velocity:
+      - [1, 1]
+      - [1, 0]
+      - [0, 1]
+      - [-1, -1]
+      - [-1, 0]
     shape: {name: 'circle', radius: 0.3}
     fov: 6.28
-    fov_radius: 10.0
+    fov_radius: 8.0
     plot:
       show_fov: true
-      show_arrow: true
-      arrow_length: 0.8
+      show_goal: false
     color: 'b'
