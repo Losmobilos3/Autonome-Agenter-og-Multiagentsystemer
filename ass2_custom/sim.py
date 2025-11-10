@@ -4,7 +4,7 @@ from matplotlib.patches import Wedge
 import numpy as np
 import os
 
-S, A, C, turnFactor, max_vel, leader_bias = 0.05, 0.001, 0.1, 0.2, 0.2, 10
+S, A, C, turnFactor, max_vel, L = 0.05, 0.005, 0.005, 0.2, 0.2, 0.005
 
 class Simulation:
     def __init__(self, no_agents, no_leaders, width, height, view_distance, protect_distance, screen_ratio=0.9):
@@ -63,7 +63,7 @@ class Simulation:
             self.fov_patches.append(wedge)
         
         # Return the new artists along with the old scatter for the animation
-        return (self.scatter, *self.fov_patches) # Use tuple unpacking to return all artists
+        return self.scatter, *self.fov_patches  # Use tuple unpacking to return all artists
 
     def save_metrics(self):
         self.avg_dist_leader.append(self.avg_dist_to_leader())
@@ -190,7 +190,7 @@ class Simulation:
         plt.close(fig)
 
     def animate_frame(self, i):
-        if (i % 100 == 0):
+        if i % 100 == 0:
             print(f"Animating frame {i}")
 
         # Update the simulation state
@@ -214,7 +214,7 @@ class Simulation:
         self.save_metrics()
         
         # Return all updated plot objects (scatter and patches)
-        return (self.scatter, *updated_patches)
+        return self.scatter, *updated_patches
 
 class Agent:
     def __init__(self, view_distance, protect_distance, sim_ref: Simulation):
@@ -228,12 +228,12 @@ class Agent:
 
     def update(self):
         # Limit velocity
-        self.vel *= max_vel / np.linalg.norm(self.vel) * (2/3 if isinstance(self, Leader) else 1) 
+        self.vel *= max_vel / np.linalg.norm(self.vel) * (2/3 if isinstance(self, Leader) else 1)
         self.pos += self.vel
 
     def render(self, ax):
         return 0
-    
+
     def act(self):
         pass  # To be implemented in subclasses
 
@@ -247,39 +247,55 @@ class Follower(Agent):
 
         near_neighbors = [a for a in neighbors if np.linalg.norm(a.pos - self.pos) < self.protect_distance]
 
-        if (len(neighbors) == 0):
+        if len(neighbors) == 0:
             return
 
-        seperation = self.compute_separation(near_neighbors)
+        separation = self.compute_separation(near_neighbors)
 
         alignment = self.compute_alignment(neighbors)
 
         cohesion = self.compute_cohesion(neighbors)
 
-        # leaders = [a for a in neighbors if isinstance(a, Leader) and np.linalg.norm(a.pos - self.pos) < self.view_distance]
-        # if leaders:
-        #     nearest_leader = min(leaders, key=lambda l: np.linalg.norm(l.pos - self.pos))
-        #     follow_force = (nearest_leader.pos - self.pos)
-        #     self.vel += 10 * follow_force  # adjust strength
+        leader_cohesion = self.compute_leader_cohesion(neighbors)
 
+        # Apply boid principles
+        self.vel += S * separation + A * alignment + C * cohesion
 
-        self.vel += S * seperation + A * alignment + C * cohesion + turnFactor * self.stay_on_screen()
+        # Apply leader force
+        self.vel += L * leader_cohesion
+
+        # Avoid the wall
+        self.vel += turnFactor * self.stay_on_screen()
 
 
     def compute_separation(self, neighbors: list['Agent']):
+        if len(neighbors) == 0:
+            return 0
         dv = 0
         for neighbor in neighbors:
             dv += self.pos - neighbor.pos
         return dv 
 
     def compute_alignment(self, neighbors: list['Agent']):
-        return np.mean([n.vel * (1 if isinstance(n, Follower) else leader_bias) for n in neighbors])
+        if len(neighbors) == 0:
+            return 0
+        return np.mean([n.vel for n in neighbors], axis=0)
 
     def compute_cohesion(self, neighbors: list['Agent']):
-        avg_position = np.mean([n.pos * (0 if isinstance(n, Follower) else leader_bias) for n in neighbors], axis=0)
+        if len(neighbors) == 0:
+            return 0
+        avg_position = np.mean([n.pos for n in neighbors], axis=0)
         dv = avg_position - self.pos
         return dv
-        
+
+    def compute_leader_cohesion(self, neighbors: list['Agent']):
+        if len(neighbors) == 0:
+            return 0
+        leaders = [a for a in neighbors if isinstance(a, Leader)]
+        if leaders:
+            return leaders[0].pos - self.pos
+        return 0
+
     def stay_on_screen(self):
         dv = np.zeros((2,1))
         if self.pos[0] < self.sim_ref.size[0] * (1 - self.sim_ref.screen_ratio):
@@ -310,4 +326,3 @@ class Leader(Agent):
         elif self.pos[1] > self.sim_ref.size[1] * self.sim_ref.screen_ratio:
             dv[1] = -1
         return dv
-        
