@@ -1,4 +1,5 @@
 from sim import Simulation
+import matplotlib as plt
 from matplotlib import animation
 
 sim = Simulation(
@@ -32,5 +33,7 @@ ani = animation.FuncAnimation(
 
 ani.save('simulation_animation.mp4', writer='ffmpeg', fps=60)
 
-
 sim.plot_avg_distance_to_leader()
+sim.plot_avg_distance_to_followers()
+sim.plot_diff_distance_to_leader()
+sim.plot_diff_distance_to_followers()
