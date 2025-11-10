@@ -150,7 +150,7 @@ class Simulation:
         
         fig, ax = plt.subplots(figsize=(10,6))
         # ax.plot(seconds, diff, label='Instantaneous Rate of Change', alpha=0.3, linewidth=0.5)
-        ax.plot(seconds, smoothed_diff, label=f'Smoothed ({window_size/fps:.1f}s window)', linewidth=2)
+        ax.plot(seconds, smoothed_diff, label=f'Smoothed rate of change ({window_size/fps:.1f}s window)', linewidth=2)
         ax.set_xlabel('Time (seconds)')
         ax.set_ylabel('Change in Distance')
         ax.set_title('Rate of Change in Average Distance to Leader')
@@ -178,7 +178,7 @@ class Simulation:
         
         fig, ax = plt.subplots(figsize=(10,6))
         # ax.plot(seconds, diff, label='Instantaneous Rate of Change', alpha=0.3, linewidth=0.5)
-        ax.plot(seconds, smoothed_diff, label=f'Smoothed ({window_size/fps:.1f}s window)', linewidth=2)
+        ax.plot(seconds, smoothed_diff, label=f'Smoothed rate of change ({window_size/fps:.1f}s window)', linewidth=2)
         ax.set_xlabel('Time (seconds)')
         ax.set_ylabel('Change in Distance')
         ax.set_title('Rate of Change in Average Distance Between Followers')
