@@ -1,7 +1,14 @@
 from sim import Simulation
 from matplotlib import animation
 
-sim = Simulation(200, 400, 300, 40, 8)
+sim = Simulation(
+    no_agents= 4,
+    no_leaders = 1,
+    width = 70,
+    height = 40,
+    view_distance = 20,
+    protect_distance = 4
+)
 
 scatter = sim.setup_plot()
 
@@ -13,6 +20,8 @@ NO_frames = 2000
 #     if i % 10 == 0:
 #         print(f"Completed frame {i+1}/{NO_frames}")
 
+print("START")
+
 ani = animation.FuncAnimation(
     fig=sim.fig,                 # The figure object
     func=sim.animate_frame,      # The function to call for each frame
@@ -22,3 +31,6 @@ ani = animation.FuncAnimation(
 )
 
 ani.save('simulation_animation.mp4', writer='ffmpeg', fps=60)
+
+
+sim.plot_avg_distance_to_leader()
