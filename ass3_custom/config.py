@@ -1,0 +1,2 @@
+TURN_FACTOR = 0.2
+MAX_VEL = 0.2
