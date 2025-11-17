@@ -14,11 +14,6 @@ class Simulation:
         self.avg_dist_leader = [] 
         self.avg_dist_followers = [] 
 
-        # Initiate performance metrics
-        avg_sep_metric = []
-        avg_align_metric = []
-        avg_coh_metric = []
-
         # Append followers to the agent list
         for n in range(no_agents):
             self.agents.append(Follower(view_distance, protect_distance, self))
@@ -69,7 +64,6 @@ class Simulation:
         self.avg_dist_leader.append(self.avg_dist_to_leader())
         self.avg_dist_followers.append(self.avg_dist_to_followers())
         
-        
     def avg_dist_to_leader(self):
         leaders = [a for a in self.agents if isinstance(a, Leader)]
         followers = [a for a in self.agents if isinstance(a, Follower)]
@@ -78,8 +72,6 @@ class Simulation:
         for f in followers:
             for l in leaders:
                 distances.append(np.linalg.norm(f.pos - l.pos))
-            # dists = [np.linalg.norm(f.pos - l.pos) for l in leaders]
-            # distances.append(dists) 
                         
         return np.mean(distances)
     
@@ -125,7 +117,7 @@ class Simulation:
         ax.plot(seconds, self.avg_dist_followers, label='Avg Distance to Followers')
         ax.set_xlabel('Time (seconds)')
         ax.set_ylabel('Average Distance')
-        ax.set_title('Average Between Distance of Followers')
+        ax.set_title('Average Distance Between Followers')
         ax.legend()
         ax.grid(True)
 
@@ -143,13 +135,10 @@ class Simulation:
         diff = np.diff(self.avg_dist_leader, prepend=0)
         diff[0] = 0  
         
-        # Apply moving average to smooth the data over a time window
-        # window_size is in frames (default 60 frames = 1 second at 60 FPS)
-        # Use moving average for smoothing, 60 frame window equal to 1 second
+        # Using moving average for smoothing, 60 frame window equal to 1 second
         smoothed_diff = np.convolve(diff, np.ones(window_size)/window_size, mode='same')
         
         fig, ax = plt.subplots(figsize=(10,6))
-        # ax.plot(seconds, diff, label='Instantaneous Rate of Change', alpha=0.3, linewidth=0.5)
         ax.plot(seconds, smoothed_diff, label=f'Smoothed rate of change ({window_size/fps:.1f}s window)', linewidth=2)
         ax.set_xlabel('Time (seconds)')
         ax.set_ylabel('Change in Distance')
@@ -171,13 +160,11 @@ class Simulation:
         diff = np.diff(self.avg_dist_followers, prepend=0)
         diff[0] = 0  
         
-        # Apply moving average to smooth the data over a time window
-        # window_size is in frames (default 60 frames = 1 second at 60 FPS)
-        # Use moving average for smoothing, 60 frame window equal to 1 second
+
+        # Using moving average for smoothing, 60 frame window equal to 1 second
         smoothed_diff = np.convolve(diff, np.ones(window_size)/window_size, mode='same')
         
         fig, ax = plt.subplots(figsize=(10,6))
-        # ax.plot(seconds, diff, label='Instantaneous Rate of Change', alpha=0.3, linewidth=0.5)
         ax.plot(seconds, smoothed_diff, label=f'Smoothed rate of change ({window_size/fps:.1f}s window)', linewidth=2)
         ax.set_xlabel('Time (seconds)')
         ax.set_ylabel('Change in Distance')
