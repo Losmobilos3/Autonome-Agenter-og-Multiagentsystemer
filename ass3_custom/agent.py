@@ -16,10 +16,11 @@ class Agent:
         self.reward += reward
 
     def update(self):
-        # Limit velocity
-        vel_norm = np.linalg.norm(self.vel)
-        if vel_norm > 0:
-            self.vel *= MAX_VEL / vel_norm
+        # Clamp velocity
+        speed = np.linalg.norm(self.vel)
+        if speed > MAX_VEL:
+            self.vel = (self.vel / speed) * MAX_VEL
+
         self.pos += self.vel
 
     def act(self):
@@ -34,7 +35,7 @@ class Worker(Agent):
         self.level = level
         self.Q_model = Model(input_size=(2 * num_agents + 3 * num_fruits), hidden_size=64)
         self.discount_factor = 0.9  # Discount factor for future rewards
-        self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.01)
+        self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.1)
         self.prior_action_q_value = None
 
 
@@ -50,7 +51,13 @@ class Worker(Agent):
 
     def learn(self):
         curr_state = self.sim_ref.get_state_tensor()
-        Q_val_curr, vel = self.Q_model(curr_state)
+        Q_val_curr, vel_info = self.Q_model(curr_state)
+
+        # Extract velocity information
+        vel = vel_info[:2].reshape(2, 1)
+        magnitude = vel_info[2].item()
+        vel /= np.linalg.norm(vel.detach().numpy()) + 1e-6  # Normalize velocity
+        vel *= magnitude  # Scale by predicted magnitude
 
         # Select action randomly based on Q-values
         decision_id = torch.multinomial(Q_val_curr, num_samples=1).item()
@@ -75,7 +82,7 @@ class Worker(Agent):
         for fruit in self.sim_ref.fruits:
             if fruit.picked:
                 continue
-            if np.linalg.norm(fruit.pos - self.pos) < 2.0:
+            if np.linalg.norm(fruit.pos - self.pos) < 3.0:
                 fruit.picked = 1
                 self.give_reward(1)  # Reward for collecting a fruit
                 break # Only pick up 1 fruit per frame

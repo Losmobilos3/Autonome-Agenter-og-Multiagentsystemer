@@ -51,6 +51,21 @@ class Simulation:
         for agent in self.agents:
             agent.act()
             agent.update()
+            self.give_rewards(agent)
+
+    def give_rewards(self, agent: Agent):
+            # Give reward based on distance to nearest fruit
+            dist_to_fruits = np.array([np.linalg.norm(fruit.pos - agent.pos) for fruit in self.fruits if not fruit.picked])
+            min_dist_index = np.argmin(dist_to_fruits)
+            min_dist = dist_to_fruits[min_dist_index] if min_dist_index is not None else None
+            if min_dist is not None and min_dist < 5.0:
+                agent.give_reward(1/min(dist_to_fruits))  # Small negative reward to encourage action
+            else:
+                agent.give_reward(-0.01)  # Small negative reward to encourage action
+            # Punish for going away from fruits
+            agentToFruitVec = self.fruits[min_dist_index].pos - agent.pos
+            directionReward = (agentToFruitVec.T @ agent.vel).item()
+            agent.give_reward(directionReward * 0.01)
 
     def setup_plot(self):
         self.ax.axis("equal")
@@ -62,6 +77,8 @@ class Simulation:
         self.fruit_level_patches = []
         self.fruit_stems = [] # NEW: List to store stem Line2D objects
         for f in self.fruits:
+            if f.picked:
+                continue # Skip picked fruits
             # Fruit level text (no offset, centered)
             text_patch = self.ax.text(
                 f.pos[0], f.pos[1], 
@@ -101,9 +118,17 @@ class Simulation:
             )
             self.agent_level_patches.append(text_patch)
         
+        # Add reward display for the first agent
+        self.reward_text = self.ax.text(
+            10, self.size[1] - 10,  # Top-left corner
+            f"Agent 0 Reward: {self.agents[0].reward:.2f}",
+            fontsize=14, color='black',
+            bbox=dict(facecolor='white', edgecolor='black', alpha=0.8)
+        )
+        
         # Return ALL artists that need to be redrawn
         return (*self.fruit_level_patches, *self.agent_level_patches,
-                *self.fruit_stems) # Include the stems
+                *self.fruit_stems, self.reward_text) # Include the stems and reward text
         
     def animate_frame(self, i):
         if i % 100 == 0:
@@ -126,11 +151,14 @@ class Simulation:
             y_stem_end = y_stem_start + FRUIT_PLOT_SIZE / 1000 * 4
             self.fruit_stems[j].set_data([x_stem_start, x_stem_end], [y_stem_start, y_stem_end])
 
+        # Update reward display for the first agent
+        self.reward_text.set_text(f"Agent 0 Reward: {self.agents[0].reward:.2f}")
+
         # Save performance metrics
         self.save_metrics()
         
         # Return all updated plot objects (text patches and stems)
-        return (*self.fruit_level_patches, *self.agent_level_patches, *self.fruit_stems) 
+        return (*self.fruit_level_patches, *self.agent_level_patches, *self.fruit_stems, self.reward_text) 
     
 
     def save_metrics(self):
