@@ -28,6 +28,24 @@ class Simulation:
 
         self.fig, self.ax = plt.subplots(figsize=(20, 15))
 
+    def init_env(self):
+        for agent in self.agents:
+            agent.pos = np.random.rand(2, 1) * self.size
+            agent.vel = np.random.rand(2, 1) * 3
+
+        for fruit in self.fruits:
+            fruit.pos = np.random.rand(2, 1) * self.size
+            fruit.picked = 0
+
+
+
+    def run_episodes(self, no_episodes, max_steps_per_episode):
+        for episode in range(no_episodes):
+            print(f"Starting episode {episode+1}/{no_episodes}")
+            self.init_env()
+            for step in range(max_steps_per_episode):
+                self.step()
+
     def step(self):
         self.prior_state = self.get_state_tensor()  # Store prior state for learning
         for agent in self.agents:
@@ -134,7 +152,6 @@ class Simulation:
 
         # Concat and convert to tensor
         state_array = torch.tensor(agent_positions + fruit_info, dtype=torch.float32)
-        print(state_array)
         return state_array
     
     def get_prior_state(self) -> torch.Tensor:

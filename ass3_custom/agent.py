@@ -17,7 +17,9 @@ class Agent:
 
     def update(self):
         # Limit velocity
-        self.vel *= MAX_VEL
+        vel_norm = np.linalg.norm(self.vel)
+        if vel_norm > 0:
+            self.vel *= MAX_VEL / vel_norm
         self.pos += self.vel
 
     def act(self):
@@ -32,13 +34,9 @@ class Worker(Agent):
         self.level = level
         self.Q_model = Model(input_size=(2 * num_agents + 3 * num_fruits), hidden_size=64)
         self.discount_factor = 0.9  # Discount factor for future rewards
-        self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.001)
+        self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.01)
         self.prior_action_q_value = None
 
-    def update(self):
-        # Limit velocity
-        self.vel *= MAX_VEL / np.linalg.norm(self.vel)
-        self.pos += self.vel
 
     def act(self):
         decision_id, vel = self.learn()
@@ -53,7 +51,9 @@ class Worker(Agent):
     def learn(self):
         curr_state = self.sim_ref.get_state_tensor()
         Q_val_curr, vel = self.Q_model(curr_state)
-        decision_id = torch.argmax(Q_val_curr).item()
+
+        # Select action randomly based on Q-values
+        decision_id = torch.multinomial(Q_val_curr, num_samples=1).item()
         
         # if no prior decision, do not learn
         if self.prior_action_q_value is not None:
@@ -72,6 +72,30 @@ class Worker(Agent):
         return reward
     
     def collect_fruit(self):
-        return 0
+        for fruit in self.sim_ref.fruits:
+            if fruit.picked:
+                continue
+            if np.linalg.norm(fruit.pos - self.pos) < 2.0:
+                fruit.picked = 1
+                self.give_reward(1)  # Reward for collecting a fruit
+                break # Only pick up 1 fruit per frame
         
-        
+
+class Memory:
+    def __init__(self, capacity: int):
+        self.capacity = capacity
+        self.memory = []
+    
+    def push(self, state, action, reward, next_state):
+        if len(self.memory) >= self.capacity:
+            self.memory.pop(0)
+        self.memory.append((state, action, reward, next_state))
+    
+    def sample(self, batch_size: int):
+        indices = np.random.choice(len(self.memory), batch_size, replace=False)
+        batch = [self.memory[i] for i in indices]
+        states, actions, rewards, next_states = zip(*batch)
+        return states, actions, rewards, next_states
+    
+    def __len__(self):
+        return len(self.memory)

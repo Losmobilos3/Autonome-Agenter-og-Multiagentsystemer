@@ -1,13 +1,17 @@
 from sim import Simulation
-import matplotlib as plt
+import matplotlib.pyplot as plt
 from matplotlib import animation
 
 sim = Simulation(
     no_agents= 1,
-    no_fruits= 2,
+    no_fruits= 20,
     width = 70,
     height = 40,
 )
+
+sim.run_episodes(no_episodes=1000, max_steps_per_episode=400)
+
+sim.init_env()
 
 scatter = sim.setup_plot()
 
@@ -18,7 +22,14 @@ ani = animation.FuncAnimation(
     func=sim.animate_frame,
     frames=1000,
     interval=60,
-    blit=True
+    blit=True,
+    repeat=False
 )
 
-ani.save('simulation_animation.mp4', writer='ffmpeg', fps=60)
+try:
+    ani.save('simulation_animation.mp4', writer='ffmpeg', fps=60)
+    print("Animation saved successfully")
+except Exception as e:
+    print(f"Error saving animation: {e}")
+
+plt.close(sim.fig)
