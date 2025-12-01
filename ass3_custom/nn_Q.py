@@ -1,7 +1,7 @@
 import torch
 
 class Model(torch.nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size=64):
         super(Model, self).__init__()
         self.fc1 = torch.nn.Linear(input_size, hidden_size)
         self.reg_layer = torch.nn.Linear(hidden_size, 2) # (x_vel, y_vel)
