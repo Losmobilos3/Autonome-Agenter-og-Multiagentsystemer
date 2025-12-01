@@ -69,8 +69,7 @@ class Worker(Agent):
             
             # Target Q-value (detached) SE DEEP LEARNING SLIDES
             target = reward + self.discount_factor * torch.max(Q_val_curr) # reward + best action Q-value from current state
-            dir_to_fruit = torch.tensor(self.get_closest_fruit().pos - self.pos, dtype=torch.float32)
-            loss = F.mse_loss(predicted_q, target) + F.mse_loss(mov_dir, dir_to_fruit)
+            loss = F.mse_loss(predicted_q, target) + F.mse_loss(mov_dir.T @ vel, target)
             
             self.optim.zero_grad()
             loss.backward()
@@ -106,6 +105,7 @@ class Worker(Agent):
                 closest_fruit = fruit
         return closest_fruit
 
+# NOT USED YET
 class Memory:
     def __init__(self, capacity: int):
         self.capacity = capacity
