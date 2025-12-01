@@ -77,8 +77,6 @@ class Simulation:
         self.fruit_level_patches = []
         self.fruit_stems = [] # NEW: List to store stem Line2D objects
         for f in self.fruits:
-            if f.picked:
-                continue # Skip picked fruits
             # Fruit level text (no offset, centered)
             text_patch = self.ax.text(
                 f.pos[0], f.pos[1], 
@@ -144,6 +142,10 @@ class Simulation:
         # Update fruit text positions and stems
         for j, fruit in enumerate(self.fruits):
             self.fruit_level_patches[j].set_position((fruit.pos[0], fruit.pos[1]))
+            if fruit.picked:
+                self.fruit_level_patches[j].set_alpha(0.2)  # Make picked fruits semi-transparent
+                self.fruit_level_patches[j].set_bbox(dict(facecolor='red', edgecolor='black', boxstyle=f'circle,pad={FRUIT_PLOT_SIZE/600}', alpha=0.2))
+                self.fruit_stems[j].set_alpha(0.2)  # Also make stem semi-transparent
             # Update stem positions
             x_stem_start = fruit.pos[0] 
             y_stem_start = fruit.pos[1] + FRUIT_PLOT_SIZE/1000
@@ -153,6 +155,8 @@ class Simulation:
 
         # Update reward display for the first agent
         self.reward_text.set_text(f"Agent 0 Reward: {self.agents[0].reward:.2f}")
+        # Show vel of agent 0
+        self.reward_text.set_text(self.reward_text.get_text() + f" | Vel: {self.agents[0].vel[0]:.2f}, {self.agents[0].vel[1]:.2f}")
 
         # Save performance metrics
         self.save_metrics()
