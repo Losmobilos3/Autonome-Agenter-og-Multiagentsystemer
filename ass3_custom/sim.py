@@ -155,8 +155,6 @@ class Simulation:
 
         # Update reward display for the first agent
         self.reward_text.set_text(f"Agent 0 Reward: {self.agents[0].reward:.2f}")
-        # Show vel of agent 0
-        self.reward_text.set_text(self.reward_text.get_text() + f" | Vel: {self.agents[0].vel[0]:.2f}, {self.agents[0].vel[1]:.2f}")
 
         # Save performance metrics
         self.save_metrics()

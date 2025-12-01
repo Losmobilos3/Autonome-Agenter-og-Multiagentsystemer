@@ -53,13 +53,7 @@ class Worker(Agent):
 
     def learn(self):
         curr_state = self.sim_ref.get_state_tensor()
-        Q_val_curr, vel_info = self.Q_model(curr_state)
-
-        # Extract velocity information
-        vel = vel_info[:2].reshape(2, 1)
-        magnitude = vel_info[2].item()
-        vel /= np.linalg.norm(vel.detach().numpy()) + 1e-6  # Normalize velocity
-        vel *= magnitude  # Scale by predicted magnitude
+        Q_val_curr, vel = self.Q_model(curr_state)
 
         # Select action randomly based on Q-values (using softmax for probabilities)
         probs = torch.softmax(Q_val_curr, dim=0)
@@ -74,15 +68,15 @@ class Worker(Agent):
             predicted_q = Q_prev[self.prior_action] # Chosen action Q-value from prior state
             
             # Target Q-value (detached) SE DEEP LEARNING SLIDES
-            target = reward + self.discount_factor * torch.max(Q_val_curr).detach() # reward + best action Q-value from current state
+            target = reward + self.discount_factor * torch.max(Q_val_curr) # reward + best action Q-value from current state
             dir_to_fruit = torch.tensor(self.get_closest_fruit().pos - self.pos, dtype=torch.float32)
-            loss = F.mse_loss(predicted_q, target) + F.mse_loss(mov_dir[:2], dir_to_fruit) + F.mse_loss(mov_dir[2], vel_info[2])
+            loss = F.mse_loss(predicted_q, target) + F.mse_loss(mov_dir, dir_to_fruit)
             
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
 
-        self.prior_state = curr_state.clone().detach()
+        self.prior_state = curr_state.clone()
         self.prior_action = decision_id
         return decision_id, vel
         
