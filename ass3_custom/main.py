@@ -9,7 +9,7 @@ sim = Simulation(
     height = 40,
 )
 
-sim.run_episodes(no_episodes=10, max_steps_per_episode=300)
+sim.run_episodes(no_episodes=40, max_steps_per_episode=300)
 
 sim.init_env()
 

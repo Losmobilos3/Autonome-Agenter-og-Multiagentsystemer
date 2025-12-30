@@ -40,9 +40,7 @@ class Simulation:
         self.agents: list[Agent] = [Agent(self, i) for i in range(no_agents)]
 
         # Initialize fruits
-        self.fruits: list[Fruit] = [
-            Fruit(position=np.random.rand(2,1) * self.size, level=1) for _ in range(no_fruits)
-        ]
+        self.fruits: list[Fruit] = [Fruit(position=np.random.rand(2,1) * self.size) for _ in range(no_fruits)]
 
         # Used for learning
         self.abs_prior_state = None
@@ -73,24 +71,28 @@ class Simulation:
         for episode in range(no_episodes):
             print(f"Starting episode {episode+1}/{no_episodes}")
             self.init_env()
-            for step in range(max_steps_per_episode):
-                self.step(step)
+            for i in range(max_steps_per_episode):
+                self.step(i)
 
-    def step(self, step_num=None):
-        """Take a step in the simulation""" 
-        self.save_prior_state()
-
+    def step(self, step_num: int = None):
+        """Take a step in the simulation
+        
+        Args:
+            step_num (int): Step counter (if set, will run training every 20 steps)
+        """ 
         for i, agent in enumerate(self.agents):
             decision_id, vel = agent.act()
-            agent.update()
 
             # Update agent action buffer with newly taken action
-            self.agent_action_buffers[i].add_data(self.get_prior_state(i), decision_id, vel)
+            self.agent_action_buffers[i].add_data(self.get_state_tensor(i), decision_id, vel)
 
             # Fit policy approximations hat(pi) here
-            # TODO: add some criteria to not train every step
             if step_num and step_num % 20 == 0:
                 supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i])
+
+        # Update the agents' states
+        for agent in self.agents:
+            agent.update()
 
         # Check for fruit collection
         collecting_agents = [agent for agent in self.agents if agent.collecting]
@@ -115,7 +117,7 @@ class Simulation:
 
                 # Give all close agents a reward
                 for agent in close_agents:
-                    agent.give_reward(1)
+                    agent.give_reward(5) # Reward for collecting a fruit
 
                 # Only pick up 1 fruit per frame
                 break
@@ -123,6 +125,8 @@ class Simulation:
         # Give rewards after all agents have moved
         for agent in self.agents:
             self.give_rewards(agent)
+
+        self.save_prior_state()
 
     def give_rewards(self, agent: Agent):
         """Distribute rewards to an agent
@@ -136,13 +140,15 @@ class Simulation:
         
         min_dist = dist_to_fruits[min_dist_index] if min_dist_index is not None else None
         if min_dist is not None and min_dist < 5.0:
-            agent.give_reward(1/min(dist_to_fruits))  # Small positive reward to encourage action
+            agent.give_reward(1/min(dist_to_fruits)**2)  # Small positive reward to encourage action
         else:
             agent.give_reward(-0.01)  # Small negative reward to encourage action
         # Punish for going away from fruits
         agentToFruitVec = self.fruits[min_dist_index].pos - agent.pos
         directionReward = (agentToFruitVec.T @ agent.vel).item()
         agent.give_reward(directionReward * 0.01)
+
+        agent.give_reward(-0.01)
 
     def setup_plot(self):
         """Initializes the plot"""
@@ -296,6 +302,8 @@ class Simulation:
         # Calculate distances and sort
         fruits_with_dist = []
         for fruit in self.fruits:
+            if fruit.picked:
+                continue
             dx = fruit.pos[0].item() - subject.pos[0].item()
             dy = fruit.pos[1].item() - subject.pos[1].item()
             dist = np.sqrt(dx**2 + dy**2)
@@ -346,6 +354,8 @@ class Simulation:
         # Calculate distances and sort
         fruits_with_dist = []
         for fruit in abs_fruit_info:
+            if fruit["picked"]:
+                continue
             dx = fruit["x"] - subject.pos[0].item()
             dy = fruit["y"] - subject.pos[1].item()
             dist = (dx**2 + dy**2)**0.5
@@ -362,7 +372,7 @@ class Simulation:
                 fruit_info.append(picked)
             else:
                 # Padding with "picked" fruits
-                fruit_info.extend([0, 0, 1])
+                fruit_info.extend([0, 0, 1, 1])
 
         # Concat and convert to tensor
         return torch.tensor(agent_positions + fruit_info, dtype=torch.float32)

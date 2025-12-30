@@ -60,7 +60,7 @@ class Agent:
         self.pos += self.vel
 
     def act(self):
-        """Let the Worker Agent take an action based on its model
+        """Let the Agent take an action based on its model
 
         Returns:
             tuple[int, float]: Decision ID, and Agent velocity
@@ -78,16 +78,21 @@ class Agent:
         return decision_id, vel
 
     def learn(self):
-        """Update the Worker Agent model, and return a decision and velocity
+        """Update the Agent model, and return a decision and velocity
 
         Returns:
             tuple[int, float]: Decision ID, and Agent velocity
         """
         curr_state = self.sim_ref.get_state_tensor(self.agent_idx)
-        Q_val_curr, vel = self.Q_model(curr_state)
+        Q_val_curr, curr_vel = self.Q_model(curr_state)
 
         # Select action based on Q-values (using argmax for stability)
-        decision_id = torch.argmax(Q_val_curr).item()
+        probs = torch.softmax(Q_val_curr, dim=0).detach().numpy()
+        decision_id = torch.multinomial(torch.tensor(probs), num_samples=1).item()
+
+        # if decision_id == 0:
+        #     print(vel.detach().numpy())
+        #     print()
 
         # if no prior decision, do not learn
         prior_state = self.sim_ref.get_prior_state(self.agent_idx)
@@ -97,20 +102,20 @@ class Agent:
             self.reward = 0
 
             # Re-evaluate prior state to get gradient-attached Q-values
-            Q_prev, mov_dir = self.Q_model(prior_state)
+            Q_prev, prior_vel = self.Q_model(prior_state)
             predicted_q = Q_prev[self.prior_action]  # Chosen action Q-value from prior state
 
             # Target Q-value (detached) SE DEEP LEARNING SLIDES
             target = reward + self.discount_factor * torch.max(
                 Q_val_curr)  # reward + best action Q-value from current state
-            loss = F.mse_loss(predicted_q, target) + F.mse_loss(torch.dot(mov_dir, vel), target)
+            loss = F.mse_loss(predicted_q, target) + F.mse_loss(torch.dot(prior_vel, curr_vel), target)
 
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
 
         self.prior_action = decision_id
-        return decision_id, vel
+        return decision_id, curr_vel
 
     def get_closest_fruit(self):
         """Returns the fruit closest to the Agent
