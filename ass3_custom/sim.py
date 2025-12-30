@@ -1,14 +1,13 @@
 import matplotlib.pyplot as plt
 
 import numpy as np
-from agent import Agent, Worker
+from agent import Agent
 from fruit import Fruit
 from config import AGENT_PLOT_SIZE, FRUIT_PLOT_SIZE, COLLECTION_DISTANCE, NEAREST_FRUITS_COUNT
 from matplotlib.lines import Line2D 
 import torch
 from nn_Q import Model, supervised_train
 from action_ds import ActionDataset
-import copy
 
 class Simulation:
     """Simulation class
@@ -37,8 +36,8 @@ class Simulation:
         # Define size of state vector
         self.state_size = 3 * (no_agents - 1) + 4 * NEAREST_FRUITS_COUNT
 
-        # Initalize Worker agents
-        self.agents: list[Agent] = [Worker(self, i) for i in range(no_agents)]
+        # Initialize Worker agents
+        self.agents: list[Agent] = [Agent(self, i) for i in range(no_agents)]
 
         # Initialize fruits
         self.fruits: list[Fruit] = [
@@ -275,26 +274,32 @@ class Simulation:
         Returns:
             torch.Tensor: Current state tensor
         """
-        # Extract realtive agent positions, except for agent_idx
+        # Extract relative agent positions, except for agent_idx
         subject = self.agents[agent_idx]
         
         agent_positions = []
         for agent in self.agents:
+
+            # Skip if agent is itself
             if agent == self.agents[agent_idx]:
                 continue
-            agent_positions.append(agent.pos[0].item() - subject.pos[0].item())
-            agent_positions.append(agent.pos[1].item() - subject.pos[1].item())
-            agent_positions.append(agent.level)
+
+            agent_positions.extend([
+                agent.pos[0] - subject.pos[0], # x-position
+                agent.pos[1] - subject.pos[1], # y-position
+                agent.level # agent level
+            ])
 
         # Extract relative fruit positions and picked status
         fruit_info = []
-        
+
         # Calculate distances and sort
         fruits_with_dist = []
         for fruit in self.fruits:
             dx = fruit.pos[0].item() - subject.pos[0].item()
             dy = fruit.pos[1].item() - subject.pos[1].item()
-            dist = (dx**2 + dy**2)**0.5
+            dist = np.sqrt(dx**2 + dy**2)
+
             fruits_with_dist.append((dist, dx, dy, fruit.picked, fruit.level))
         
         fruits_with_dist.sort(key=lambda x: x[0])
@@ -308,7 +313,7 @@ class Simulation:
                 fruit_info.append(picked)
             else:
                 # Padding with "picked" fruits (effectively invisible)
-                fruit_info.extend([0, 0, 1])
+                fruit_info.extend([0, 0, 1, 1])
 
         # Concat and convert to tensor
         state_array = torch.tensor(agent_positions + fruit_info, dtype=torch.float32)
