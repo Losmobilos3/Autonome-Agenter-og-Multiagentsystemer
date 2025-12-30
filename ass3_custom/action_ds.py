@@ -3,19 +3,27 @@ from torch.utils.data import Dataset
 import torch.nn.functional as F
 
 class ActionDataset(Dataset):
-    def __init__(self, state_size):
-        self.state_history = torch.zeros((0, state_size))
-        self.action_history = torch.zeros((0, 3))  # Assuming 3 possible actions (Move, collect, nothing)
-        self.vel_history = torch.zeros((0, 2)) # (x_vel, y_vel)
+    def __init__(self, state_size, max_size=300):
+        self.max_size = max_size
+        self.states = torch.zeros((max_size, state_size))
+        self.actions = torch.zeros((max_size, 3))
+        self.vels = torch.zeros((max_size, 2))
+        self.curr_idx = 0
+        self.size = 0
 
     def add_data(self, state, action, vel):
-        self.state_history = torch.cat((self.state_history, state.unsqueeze(0)), dim=0)
-        action_one_hot = F.one_hot(torch.tensor(action), num_classes=3).float()
-        self.action_history = torch.cat((self.action_history, action_one_hot.unsqueeze(0)), dim=0)
-        self.vel_history = torch.cat((self.vel_history, vel.unsqueeze(0)), dim=0)
+        if self.curr_idx >= self.max_size:
+            self.curr_idx = 0  # Overwrite old data
+        
+        self.states[self.curr_idx] = state.detach()
+        self.actions[self.curr_idx] = F.one_hot(torch.tensor(action), num_classes=3).float()
+        self.vels[self.curr_idx] = vel.detach()
+        
+        self.curr_idx += 1
+        self.size = max(self.size, self.curr_idx)
 
     def __len__(self):
-        return self.state_history.shape[0]
+        return self.size
 
     def __getitem__(self, idx):
-        return self.state_history[idx], self.action_history[idx], self.vel_history[idx] # X, action, velocity
+        return self.states[idx], self.actions[idx], self.vels[idx]

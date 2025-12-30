@@ -13,7 +13,7 @@ class Model(torch.nn.Module):
         features = torch.nn.functional.relu(x)
         vel = self.reg_layer(features)
         decision = self.decision_layer(features)
-        decision = torch.nn.functional.softmax(decision, dim=0)
+        # decision = torch.nn.functional.softmax(decision, dim=0)
         return decision, vel
     
 

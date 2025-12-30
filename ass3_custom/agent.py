@@ -74,7 +74,6 @@ class Worker(Agent):
         self.Q_model = Model(input_size=self.sim_ref.state_size, hidden_size=64)
         self.discount_factor = 0.9  # Discount factor for future rewards
         self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.1)
-        self.prior_state = None
         self.prior_action = None
 
 
@@ -92,7 +91,6 @@ class Worker(Agent):
                 self.vel = vel.detach().numpy().reshape(2, 1)
             case 1: # Collect
                 self.collecting = True
-                self.collect_fruit()
             case 2: # Do nothing
                 self.vel = np.zeros((2, 1))
         return decision_id, vel
@@ -106,41 +104,30 @@ class Worker(Agent):
         curr_state = self.sim_ref.get_state_tensor(self.agent_idx)
         Q_val_curr, vel = self.Q_model(curr_state)
 
-        # Select action randomly based on Q-values (using softmax for probabilities)
-        probs = torch.softmax(Q_val_curr, dim=0)
-        decision_id = torch.multinomial(probs, num_samples=1).item()
+        # Select action based on Q-values (using argmax for stability)
+        decision_id = torch.argmax(Q_val_curr).item()
         
         # if no prior decision, do not learn
-        if self.prior_state is not None:
+        prior_state = self.sim_ref.get_prior_state(self.agent_idx)
+        if prior_state is not None:
             # Get the reward, and reset the reward variable
             reward = self.reward
             self.reward = 0
-            
+
             # Re-evaluate prior state to get gradient-attached Q-values
-            Q_prev, mov_dir = self.Q_model(self.prior_state)
+            Q_prev, mov_dir = self.Q_model(prior_state)
             predicted_q = Q_prev[self.prior_action] # Chosen action Q-value from prior state
             
             # Target Q-value (detached) SE DEEP LEARNING SLIDES
             target = reward + self.discount_factor * torch.max(Q_val_curr) # reward + best action Q-value from current state
-            loss = F.mse_loss(predicted_q, target) + F.mse_loss(mov_dir.T @ vel, target)
+            loss = F.mse_loss(predicted_q, target) + F.mse_loss(torch.dot(mov_dir, vel), target)
             
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
 
-        self.prior_state = curr_state.clone()
         self.prior_action = decision_id
         return decision_id, vel
-    
-    # # TODO: remove
-    # def collect_fruit(self):
-    #     for fruit in self.sim_ref.fruits:
-    #         if fruit.picked:
-    #             continue
-    #         if np.linalg.norm(fruit.pos - self.pos) < 3.0:
-    #             fruit.picked = 1
-    #             self.give_reward(1)  # Reward for collecting a fruit
-    #             break # Only pick up 1 fruit per frame
         
     def get_closest_fruit(self):
         """Returns the fruit closest to the Agent

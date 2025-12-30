@@ -3,11 +3,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from agent import Agent, Worker
 from fruit import Fruit
-from config import AGENT_PLOT_SIZE, FRUIT_PLOT_SIZE, COLLECTION_DISTANCE
+from config import AGENT_PLOT_SIZE, FRUIT_PLOT_SIZE, COLLECTION_DISTANCE, NEAREST_FRUITS_COUNT
 from matplotlib.lines import Line2D 
 import torch
 from nn_Q import Model, supervised_train
 from action_ds import ActionDataset
+import copy
 
 class Simulation:
     """Simulation class
@@ -16,6 +17,7 @@ class Simulation:
         size (np.NDArray[width, height]): Simulation size
         agents (List[Agent]): List of agents in the simulation
         fruits (List[Fruit]): List of fruits in the simulation
+        abs_prior_state
         prior_state (torch.Tensor): State tensor for the prior state
         state_size (int): Size of the state sensor
         fig, ax (tuple[Figure, Axes]): Subplot figure for the simulation
@@ -33,7 +35,7 @@ class Simulation:
         self.size = np.vstack([width, height])
 
         # Define size of state vector
-        self.state_size = 2 * (no_agents - 1) + 3 * no_fruits
+        self.state_size = 3 * (no_agents - 1) + 4 * NEAREST_FRUITS_COUNT
 
         # Initalize Worker agents
         self.agents: list[Agent] = [Worker(self, i) for i in range(no_agents)]
@@ -44,7 +46,7 @@ class Simulation:
         ]
 
         # Used for learning
-        self.prior_state = None
+        self.abs_prior_state = None
 
         # Shared policy approximations hat(pi)
         self.agent_policy_estimations = [Model(input_size=self.state_size, hidden_size=64) for _ in range(no_agents)]
@@ -72,11 +74,11 @@ class Simulation:
         for episode in range(no_episodes):
             print(f"Starting episode {episode+1}/{no_episodes}")
             self.init_env()
-            for _ in range(max_steps_per_episode):
-                self.step()
+            for step in range(max_steps_per_episode):
+                self.step(step)
 
-    def step(self):
-        """Take a step in the simulation"""
+    def step(self, step_num=None):
+        """Take a step in the simulation""" 
         self.save_prior_state()
 
         for i, agent in enumerate(self.agents):
@@ -88,7 +90,8 @@ class Simulation:
 
             # Fit policy approximations hat(pi) here
             # TODO: add some criteria to not train every step
-            supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i])
+            if step_num and step_num % 20 == 0:
+                supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i])
 
         # Check for fruit collection
         collecting_agents = [agent for agent in self.agents if agent.collecting]
@@ -109,7 +112,7 @@ class Simulation:
             # Check if the fruit can be collected
             if fruit.level <= collection_level:
                 # Pick the fruit
-                fruit.picked = True
+                fruit.picked = 1
 
                 # Give all close agents a reward
                 for agent in close_agents:
@@ -131,9 +134,10 @@ class Simulation:
         # Give reward based on distance to nearest fruit
         dist_to_fruits = np.array([np.linalg.norm(fruit.pos - agent.pos) for fruit in self.fruits if not fruit.picked])
         min_dist_index = np.argmin(dist_to_fruits)
+        
         min_dist = dist_to_fruits[min_dist_index] if min_dist_index is not None else None
         if min_dist is not None and min_dist < 5.0:
-            agent.give_reward(1/min(dist_to_fruits))  # Small negative reward to encourage action
+            agent.give_reward(1/min(dist_to_fruits))  # Small positive reward to encourage action
         else:
             agent.give_reward(-0.01)  # Small negative reward to encourage action
         # Punish for going away from fruits
@@ -247,31 +251,23 @@ class Simulation:
         # TODO: ?
         pass
 
-    def save_prior_state(self) -> torch.Tensor:
-        """Get the absolute state tensor
-        
-        Returns:
-            torch.Tensor: Current state tensor
-        """
-        # Extract agent positions
-        agent_positions = []
-        for agent in self.agents:
-            agent_positions.append(agent.pos[0].item())
-            agent_positions.append(agent.pos[1].item())
-            # TODO: Include agent level
-
-        # Extract fruit positions and picked status
-        fruit_info = []
-        for fruit in self.fruits:
-            fruit_info.append(fruit.pos[0].item())
-            fruit_info.append(fruit.pos[1].item())
-            fruit_info.append(fruit.picked)
-
-        # Concat and convert to tensor
-        state_array = torch.tensor(agent_positions + fruit_info, dtype=torch.float32)
-
-
-        self.prior_state = ...
+    def save_prior_state(self):
+        """Save the absolute prior state"""
+        # Save prior absolute state as a tuple of lists of dicts
+        self.abs_prior_state = (
+            [{
+                "x": agent.pos[0].item(),
+                "y": agent.pos[1].item(),
+                "level": agent.level,
+                "agent_idx": agent.agent_idx
+                } for agent in self.agents],
+            [{
+                "x": fruit.pos[0].item(), 
+                "y": fruit.pos[1].item(),
+                "picked": fruit.picked,
+                "level": fruit.level
+                } for fruit in self.fruits]
+        )
 
     def get_state_tensor(self, agent_idx: int) -> torch.Tensor:
         """Get the state tensor
@@ -280,31 +276,89 @@ class Simulation:
             torch.Tensor: Current state tensor
         """
         # Extract realtive agent positions, except for agent_idx
+        subject = self.agents[agent_idx]
+        
         agent_positions = []
         for agent in self.agents:
             if agent == self.agents[agent_idx]:
                 continue
-            agent_positions.append(agent.pos[0].item() - self.agents[agent_idx].pos[0].item())
-            agent_positions.append(agent.pos[1].item() - self.agents[agent_idx].pos[1].item())
+            agent_positions.append(agent.pos[0].item() - subject.pos[0].item())
+            agent_positions.append(agent.pos[1].item() - subject.pos[1].item())
+            agent_positions.append(agent.level)
 
         # Extract relative fruit positions and picked status
         fruit_info = []
+        
+        # Calculate distances and sort
+        fruits_with_dist = []
         for fruit in self.fruits:
-            fruit_info.append(fruit.pos[0].item() - self.agents[agent_idx].pos[0].item())
-            fruit_info.append(fruit.pos[1].item() - self.agents[agent_idx].pos[1].item())
-            fruit_info.append(fruit.picked)
+            dx = fruit.pos[0].item() - subject.pos[0].item()
+            dy = fruit.pos[1].item() - subject.pos[1].item()
+            dist = (dx**2 + dy**2)**0.5
+            fruits_with_dist.append((dist, dx, dy, fruit.picked, fruit.level))
+        
+        fruits_with_dist.sort(key=lambda x: x[0])
+
+        for i in range(NEAREST_FRUITS_COUNT):
+            if i < len(fruits_with_dist):
+                _, dx, dy, picked, level = fruits_with_dist[i]
+                fruit_info.append(dx)
+                fruit_info.append(dy)
+                fruit_info.append(level)
+                fruit_info.append(picked)
+            else:
+                # Padding with "picked" fruits (effectively invisible)
+                fruit_info.extend([0, 0, 1])
 
         # Concat and convert to tensor
         state_array = torch.tensor(agent_positions + fruit_info, dtype=torch.float32)
         return state_array
     
     def get_prior_state(self, agent_idx) -> torch.Tensor:
-        """Get the prior state tensor
+        """Get the relative prior state tensor
 
         Returns:
-            torch.Tensor: Prior state tensor
+            torch.Tensor: Relative prior state tensor
         """
-        # TODO: Make prior state subjective
-        
+        if self.abs_prior_state is None:
+            return None
 
-        return self.prior_state
+        abs_agents, abs_fruit_info = self.abs_prior_state
+        subject = self.agents[agent_idx]
+        
+        # Extract realtive agent positions, except for agent_idx
+        agent_positions = []
+        for agent in abs_agents:
+            if agent["agent_idx"] == agent_idx:
+                continue
+            agent_positions.append(agent["x"] - subject.pos[0].item())
+            agent_positions.append(agent["y"] - subject.pos[1].item())
+            agent_positions.append(agent["level"])
+
+        # Extract relative fruit positions and picked status
+        fruit_info = []
+        
+        # Calculate distances and sort
+        fruits_with_dist = []
+        for fruit in abs_fruit_info:
+            dx = fruit["x"] - subject.pos[0].item()
+            dy = fruit["y"] - subject.pos[1].item()
+            dist = (dx**2 + dy**2)**0.5
+            fruits_with_dist.append((dist, dx, dy, fruit["picked"], fruit["level"]))
+            
+        fruits_with_dist.sort(key=lambda x: x[0])
+
+        for i in range(NEAREST_FRUITS_COUNT):
+            if i < len(fruits_with_dist):
+                _, dx, dy, picked, level = fruits_with_dist[i]
+                fruit_info.append(dx)
+                fruit_info.append(dy)
+                fruit_info.append(level)
+                fruit_info.append(picked)
+            else:
+                # Padding with "picked" fruits
+                fruit_info.extend([0, 0, 1])
+
+        # Concat and convert to tensor
+        return torch.tensor(agent_positions + fruit_info, dtype=torch.float32)
+       
