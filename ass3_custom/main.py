@@ -9,11 +9,11 @@ sim = Simulation(
     height = 40,
 )
 
-sim.run_episodes(no_episodes=1000, max_steps_per_episode=300)
+sim.run_episodes(no_episodes=1, max_steps_per_episode=300)
 
 sim.init_env()
 
-scatter = sim.setup_plot()
+sim.setup_plot()
 
 print("START")
 

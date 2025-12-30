@@ -6,17 +6,38 @@ import torch.nn.functional as F
 S, A, C, L = 0.05, 0.005, 0.005, 0.005
 
 class Agent:
-    def __init__(self, sim_ref: "Simulation"):
+    """Agent class
+    
+    Attributes:
+        sim_ref (Simulation): Reference to the simulation
+        pos (np.NDArray[x, y]): Agent position
+        vel (np.NDArray[lin, ang]): Agent velocity
+        reward (float): Current agent reward
+        collecting (bool): Flag determining whether the agent is currently collecting
+    """
+    def __init__(self, sim_ref: "Simulation", agent_idx: int):
+        """Initialize an Agent
+
+        Args:
+            sim_ref (Simulation): Reference the simulation
+        """
         self.sim_ref = sim_ref
+        self.agent_idx = agent_idx
         self.pos = np.random.rand(2, 1) * self.sim_ref.size
         self.vel = np.random.rand(2, 1) * 3
-        self.avg_dist_to_leader_data = []
         self.reward = 0
+        self.collecting = False
 
     def give_reward(self, reward: float):
+        """Give reward to the agent
+
+        Args:
+            reward (float): Value of the reward
+        """
         self.reward += reward
 
     def update(self):
+        """Update the agent state"""
         # Clamp velocity
         speed = np.linalg.norm(self.vel)
         if speed > MAX_VEL:
@@ -31,10 +52,26 @@ class Agent:
 from nn_Q import Model
 
 class Worker(Agent):
-    def __init__(self, sim_ref: "Simulation", level: int, num_agents: int, num_fruits: int):
-        super().__init__(sim_ref)
+    """Worker agent class
+
+    Attributes:
+        level (int): Agent level (determines what level fruit the agent can collect)
+        Q_model (Model): Model used to determine the agents action
+        discount_factor (float): Reward discount factor
+        optim (torch.Optim.Adam): Agent optimization function
+        prior_state (torch.Tensor): Prior state tensor
+        prior_action (int): Decision ID for the previously executed action
+    
+    """
+    def __init__(self, sim_ref: "Simulation", agent_idx: int, level: int = 1):
+        """Initialize a Worker agent
+
+        Args:
+            level (int): Agent level (determines what level fruit the agent can collect)
+        """
+        super().__init__(sim_ref, agent_idx)
         self.level = level
-        self.Q_model = Model(input_size=(2 * num_agents + 3 * num_fruits), hidden_size=64)
+        self.Q_model = Model(input_size=self.sim_ref.state_size, hidden_size=64)
         self.discount_factor = 0.9  # Discount factor for future rewards
         self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.1)
         self.prior_state = None
@@ -42,17 +79,31 @@ class Worker(Agent):
 
 
     def act(self):
+        """Let the Worker Agent take an action based on its model
+        
+        Returns:
+            tuple[int, float]: Decision ID, and Agent velocity
+        """
         decision_id, vel = self.learn()
+
         # Execute action based on decision_id
-        if decision_id == 0:  # Move
-            self.vel = vel.detach().numpy().reshape(2, 1)
-        elif decision_id == 1:  # Collect
-            self.collect_fruit()
-        elif decision_id == 2:  # Do nothing
-            self.vel = np.zeros((2, 1))
+        match decision_id:
+            case 0: # Move
+                self.vel = vel.detach().numpy().reshape(2, 1)
+            case 1: # Collect
+                self.collecting = True
+                self.collect_fruit()
+            case 2: # Do nothing
+                self.vel = np.zeros((2, 1))
+        return decision_id, vel
 
     def learn(self):
-        curr_state = self.sim_ref.get_state_tensor()
+        """Update the Worker Agent model, and return a decision and velocity
+        
+        Returns:
+            tuple[int, float]: Decision ID, and Agent velocity
+        """
+        curr_state = self.sim_ref.get_state_tensor(self.agent_idx)
         Q_val_curr, vel = self.Q_model(curr_state)
 
         # Select action randomly based on Q-values (using softmax for probabilities)
@@ -61,7 +112,9 @@ class Worker(Agent):
         
         # if no prior decision, do not learn
         if self.prior_state is not None:
-            reward = self.collect_reward()
+            # Get the reward, and reset the reward variable
+            reward = self.reward
+            self.reward = 0
             
             # Re-evaluate prior state to get gradient-attached Q-values
             Q_prev, mov_dir = self.Q_model(self.prior_state)
@@ -78,22 +131,23 @@ class Worker(Agent):
         self.prior_state = curr_state.clone()
         self.prior_action = decision_id
         return decision_id, vel
-        
-    def collect_reward(self):
-        reward = self.reward
-        self.reward = 0  # Reset reward after using it
-        return reward
     
-    def collect_fruit(self):
-        for fruit in self.sim_ref.fruits:
-            if fruit.picked:
-                continue
-            if np.linalg.norm(fruit.pos - self.pos) < 3.0:
-                fruit.picked = 1
-                self.give_reward(1)  # Reward for collecting a fruit
-                break # Only pick up 1 fruit per frame
+    # # TODO: remove
+    # def collect_fruit(self):
+    #     for fruit in self.sim_ref.fruits:
+    #         if fruit.picked:
+    #             continue
+    #         if np.linalg.norm(fruit.pos - self.pos) < 3.0:
+    #             fruit.picked = 1
+    #             self.give_reward(1)  # Reward for collecting a fruit
+    #             break # Only pick up 1 fruit per frame
         
     def get_closest_fruit(self):
+        """Returns the fruit closest to the Agent
+        
+        Returns:
+            Fruit: Fruit object closest to the agent
+        """
         closest_fruit = None
         min_dist = float('inf')
         for fruit in self.sim_ref.fruits:
