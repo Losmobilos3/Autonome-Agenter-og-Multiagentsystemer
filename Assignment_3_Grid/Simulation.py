@@ -1,9 +1,13 @@
 import copy
+import random
 from typing import Tuple, List
+
+import numpy as np
 
 from Assignment_3_Grid.Agent import Agent
 from Assignment_3_Grid.Fruit import Fruit
 from Assignment_3_Grid.State import State
+from Assignment_3_Grid.settings import SIMULATION_SIZE, STEPS_PER_EPISODE, N_EPISODES
 
 
 class Simulation:
@@ -12,23 +16,15 @@ class Simulation:
     """
     def __init__(
             self,
-            simulation_size: Tuple[int, int],
             n_agents: int,
             n_fruits: int,
-            steps: int,
     ):
         """ Initialize LBF Simulation
 
-        :param simulation_size: size of simulation
         :param n_agents: number of agents
         :param n_fruits: number of fruits
-        :param steps: number of steps in the simulation
 
         """
-
-        # Set internal variables
-        self.simulation_size = simulation_size
-        self.steps = steps
 
         # Initialize n agents
         self.agents: List[Agent] = [
@@ -48,7 +44,15 @@ class Simulation:
             )
         ]
 
-    def step(self):
+    def reset(self) -> None:
+        """Reset the simulation"""
+        for agent in self.agents:
+            agent.reset()
+
+        for fruit in self.fruits:
+            fruit.reset()
+
+    def step(self) -> None:
         """Take one simulation step
 
         :return:
@@ -70,7 +74,15 @@ class Simulation:
         for agent in self.agents:
             agent.reward()
 
-    def run(self):
-        for _ in range(self.steps):
-            self.step()
+    def run(self, n_episodes, n_steps) -> None:
+        """Run the simulation
 
+        :param n_episodes: number of episodes
+        :param n_steps: number of steps
+
+        """
+        for i in range(n_episodes):
+            print(f"Episode: {i} of {n_episodes}")
+            for _ in range(n_steps):
+                self.step()
+            self.reset()
