@@ -1,5 +1,4 @@
 import numpy as np
-from config import MAX_VEL
 import torch
 import torch.nn.functional as F
 from nn_Q import Model
@@ -32,8 +31,8 @@ class Agent:
         """
         self.sim_ref = sim_ref
         self.agent_idx = agent_idx
-        self.pos = np.random.rand(2, 1) * self.sim_ref.size
-        self.vel = np.random.rand(2, 1) * 3
+        self.pos = np.random.randint(np.zeros((2, 1)), self.sim_ref.size, (2,1)).astype(float)
+        self.vel = np.zeros((2, 1))
         self.reward = 0
         self.collecting = False
         self.level = level
@@ -53,10 +52,9 @@ class Agent:
     def update(self):
         """Update the agent state"""
         # Clamp velocity
-        speed = np.linalg.norm(self.vel)
-        if speed > MAX_VEL:
-            self.vel = (self.vel / speed) * MAX_VEL
-
+        next_pos = self.pos + self.vel
+        if np.any(next_pos < np.zeros((2, 1))) or np.any(next_pos > self.sim_ref.size):
+            self.vel = np.zeros((2, 1))
         self.pos += self.vel
 
     def act(self):
@@ -65,17 +63,23 @@ class Agent:
         Returns:
             tuple[int, float]: Decision ID, and Agent velocity
         """
-        decision_id, vel = self.learn()
+        self.collecting = False # Reset from prior frame
+        decision_id = self.learn()
 
         # Execute action based on decision_id
+        # print(f"Agent {self.agent_idx} decision: {decision_id}")
         match decision_id:
-            case 0:  # Move
-                self.vel = vel.detach().numpy().reshape(2, 1)
-            case 1:  # Collect
+            case 0:  # Move up
+                self.vel = np.array([0, 1]) [:, np.newaxis]
+            case 1:  # Move down
+                self.vel = np.array([0, -1]) [:, np.newaxis]
+            case 2:  # Move left
+                self.vel = np.array([-1, 0]) [:, np.newaxis]
+            case 3:  # Move right
+                self.vel = np.array([1, 0]) [:, np.newaxis]
+            case 4:  # Collect
                 self.collecting = True
-            case 2:  # Do nothing
-                self.vel = np.zeros((2, 1))
-        return decision_id, vel
+        return decision_id
 
     def learn(self):
         """Update the Agent model, and return a decision and velocity
@@ -84,15 +88,11 @@ class Agent:
             tuple[int, float]: Decision ID, and Agent velocity
         """
         curr_state = self.sim_ref.get_state_tensor(self.agent_idx)
-        Q_val_curr, curr_vel = self.Q_model(curr_state)
+        Q_val_curr = self.Q_model(curr_state)
 
         # Select action based on Q-values (using argmax for stability)
         probs = torch.softmax(Q_val_curr, dim=0).detach().numpy()
         decision_id = torch.multinomial(torch.tensor(probs), num_samples=1).item()
-
-        # if decision_id == 0:
-        #     print(vel.detach().numpy())
-        #     print()
 
         # if no prior decision, do not learn
         prior_state = self.sim_ref.get_prior_state(self.agent_idx)
@@ -102,21 +102,19 @@ class Agent:
             self.reward = 0
 
             # Re-evaluate prior state to get gradient-attached Q-values
-            Q_prev, prior_vel = self.Q_model(prior_state)
+            Q_prev = self.Q_model(prior_state)
             predicted_q = Q_prev[self.prior_action]  # Chosen action Q-value from prior state
 
             # Target Q-value (detached) SE DEEP LEARNING SLIDES
             target = reward + self.discount_factor * torch.max(Q_val_curr)  # reward + best action Q-value from current state
             loss = F.mse_loss(predicted_q, target)
-            # if (decision_id == 0):
-            #     loss += F.mse_loss(torch.dot(prior_vel, curr_vel), target)
 
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
 
         self.prior_action = decision_id
-        return decision_id, curr_vel
+        return decision_id
 
     def get_closest_fruit(self):
         """Returns the fruit closest to the Agent
