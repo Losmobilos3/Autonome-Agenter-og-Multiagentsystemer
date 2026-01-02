@@ -28,12 +28,16 @@ class State:
         self.agents = agents
         self.fruits = fruits
 
-    def flatten(self):
+    def to_tensor(self):
         """Flatten the state to be used in training
 
         :returns 1D array state tensor
         """
-        agents: np.ndarray = np.array(self.agents).flatten()
-        fruits: np.ndarray = np.array(self.fruits).flatten()
+        agents: np.ndarray = np.array(
+            agent.to_tensor() for agent in self.agents
+        )
+        fruits: np.ndarray = np.array(
+            fruit.to_tensor() for fruit in self.fruits
+        )
 
         return np.concatenate((agents, fruits))

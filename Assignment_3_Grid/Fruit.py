@@ -25,3 +25,15 @@ class Fruit:
         self.level: int = 0 # Always initialize at level 1 (Can be updated later)
 
         self.collected: bool = False # Flag denoting the collected state
+
+    def to_tensor(self) -> np.ndarray:
+        """Convert fruit to tensor
+
+        :returns: tensor of fruit position
+        """
+        return np.concatenate(
+            self.position,
+            self.level,
+            self.collected,
+            axis=None
+        )
