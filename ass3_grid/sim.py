@@ -104,7 +104,7 @@ class Simulation:
             # Find all collecting agents that are close to the fruit
             close_agents = [
                 agent for agent in collecting_agents
-                if np.linalg.norm(fruit.pos - agent.pos) < COLLECTION_DISTANCE
+                if np.linalg.norm(fruit.pos - agent.pos) <= COLLECTION_DISTANCE
             ]
             
             # Compute the total level of agents around the fruit
@@ -117,7 +117,7 @@ class Simulation:
 
                 # Give all close agents a reward
                 for agent in close_agents:
-                    agent.give_reward(10) # Reward for collecting a fruit
+                    agent.give_reward(5) # Reward for collecting a fruit
 
                 # Only pick up 1 fruit per frame
                 break
@@ -128,31 +128,41 @@ class Simulation:
 
         self.save_prior_state()
 
+    def get_obstructed_cells(self):
+        obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
+        return obstructed
+
     def give_rewards(self, agent: Agent):
         """Distribute rewards to an agent
 
         Args:
             agent (Agent): Agent to be rewarded
         """
+        remaining_fruit = [fruit for fruit in self.fruits if not fruit.picked]
+        if not remaining_fruit:
+            return
+
         # Give reward based on distance to nearest fruit
-        dist_to_fruits = np.array([np.linalg.norm(fruit.pos - agent.pos) for fruit in self.fruits if not fruit.picked])
+        dist_to_fruits = np.array([np.linalg.norm(fruit.pos - agent.pos) for fruit in remaining_fruit])
         min_dist_index = np.argmin(dist_to_fruits)
+        nearest_fruit = remaining_fruit[min_dist_index]
         
-        # min_dist = dist_to_fruits[min_dist_index] if min_dist_index is not None else None
-        # if min_dist is not None and min_dist < 5.0:
-        #     agent.give_reward(1/min(dist_to_fruits)**2)  # Small positive reward to encourage action
-        # else:
-        #     agent.give_reward(-0.01)  # Small negative reward to encourage action
+        min_dist = dist_to_fruits[min_dist_index] if min_dist_index is not None else None
+        if min_dist is not None and min_dist < 5.0:
+            agent.give_reward(1/min(dist_to_fruits)**2)  # Small positive reward to encourage action
+        else:
+            agent.give_reward(-0.01)  # Small negative reward to encourage action
+            
         # Punish for going away from fruits
-        # agentToFruitVec = self.fruits[min_dist_index].pos - agent.pos
-        # directionReward = (agentToFruitVec.T @ agent.vel).item()
-        # agent.give_reward(directionReward * 0.01)
+        agentToFruitVec = nearest_fruit.pos - agent.pos
+        directionReward = (agentToFruitVec.T @ agent.vel).item()
+        agent.give_reward(directionReward * 0.01)
 
     def setup_plot(self):
         """Initializes the plot"""
         self.ax.axis("equal")
-        self.ax.set_xlim(0, self.size[0])
-        self.ax.set_ylim(0, self.size[1])
+        self.ax.set_xlim(-0.5, self.size[0] + 0.5)
+        self.ax.set_ylim(-0.5, self.size[1] + 0.5)
 
         # Add grid
         self.ax.set_xticks(np.arange(-0.5, self.size[0].item(), 1))

@@ -9,7 +9,7 @@ sim = Simulation(
     height = 40,
 )
 
-sim.run_episodes(no_episodes=1000, max_steps_per_episode=300)
+sim.run_episodes(no_episodes=200, max_steps_per_episode=300)
 
 sim.init_env()
 
@@ -33,3 +33,6 @@ except Exception as e:
     print(f"Error saving animation: {e}")
 
 plt.close(sim.fig)
+
+
+# https://chatgpt.com/c/6957adcd-f698-8326-98fa-e23f44ea6b35

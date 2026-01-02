@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from config import COLLECTION_DISTANCE
 import torch.nn.functional as F
 from nn_Q import Model
 
@@ -38,7 +39,7 @@ class Agent:
         self.level = level
         self.Q_model = Model(input_size=self.sim_ref.state_size, hidden_size=64)
         self.discount_factor = 0.9  # Discount factor for future rewards
-        self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.1)
+        self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.001)
         self.prior_action = None
 
     def give_reward(self, reward: float):
@@ -53,7 +54,9 @@ class Agent:
         """Update the agent state"""
         # Clamp velocity
         next_pos = self.pos + self.vel
-        if np.any(next_pos < np.zeros((2, 1))) or np.any(next_pos > self.sim_ref.size):
+        obstructed_cells = self.sim_ref.get_obstructed_cells()
+        cell_obstructed = any(np.array_equal(next_pos, cell) for cell in obstructed_cells)
+        if (np.any(next_pos < np.zeros((2, 1))) or np.any(next_pos >= self.sim_ref.size)) or cell_obstructed:
             self.vel = np.zeros((2, 1))
         self.pos += self.vel
 
@@ -65,6 +68,7 @@ class Agent:
         """
         self.collecting = False # Reset from prior frame
         decision_id = self.learn()
+        # decay learning
 
         # Execute action based on decision_id
         # print(f"Agent {self.agent_idx} decision: {decision_id}")
@@ -78,9 +82,10 @@ class Agent:
             case 3:  # Move right
                 self.vel = np.array([1, 0]) [:, np.newaxis]
             case 4:  # Collect
+                self.vel = np.zeros((2,1))
                 self.collecting = True
         return decision_id
-
+    
     def learn(self):
         """Update the Agent model, and return a decision and velocity
 
@@ -90,9 +95,9 @@ class Agent:
         curr_state = self.sim_ref.get_state_tensor(self.agent_idx)
         Q_val_curr = self.Q_model(curr_state)
 
-        # Select action based on Q-values (using argmax for stability)
-        probs = torch.softmax(Q_val_curr, dim=0).detach().numpy()
-        decision_id = torch.multinomial(torch.tensor(probs), num_samples=1).item()
+        probs = torch.nn.functional.softmax(Q_val_curr, dim=0)
+        # print(Q_val_curr, probs)
+        decision_id = torch.multinomial(probs, num_samples=1).item()
 
         # if no prior decision, do not learn
         prior_state = self.sim_ref.get_prior_state(self.agent_idx)
@@ -103,11 +108,11 @@ class Agent:
 
             # Re-evaluate prior state to get gradient-attached Q-values
             Q_prev = self.Q_model(prior_state)
-            predicted_q = Q_prev[self.prior_action]  # Chosen action Q-value from prior state
+            prev_q = Q_prev[self.prior_action]  # Chosen action Q-value from prior state
 
             # Target Q-value (detached) SE DEEP LEARNING SLIDES
-            target = reward + self.discount_factor * torch.max(Q_val_curr)  # reward + best action Q-value from current state
-            loss = F.mse_loss(predicted_q, target)
+            target = reward + self.discount_factor * torch.max(Q_val_curr).detach()  # reward + best action Q-value from current state
+            loss = F.mse_loss(prev_q, target)
 
             self.optim.zero_grad()
             loss.backward()
