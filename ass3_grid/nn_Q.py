@@ -1,16 +1,17 @@
 import torch
 
 class Model(torch.nn.Module):
-    def __init__(self, input_size, hidden_size=64):
+    def __init__(self, input_size, hidden_size=64, include_softmax=False):
         super(Model, self).__init__()
+        self.include_softmax = include_softmax
         self.fc1 = torch.nn.Linear(input_size, hidden_size)
         self.decision_layer = torch.nn.Linear(hidden_size, 5)  # Assuming 5 possible actions (Up, Down, Left, Right, Collect)
-
-
     def forward(self, x):
         x = self.fc1(x)
         features = torch.nn.functional.relu(x)
         decision = self.decision_layer(features)
+        if self.include_softmax:
+            decision = torch.nn.functional.softmax(decision, dim=-1)
         return decision
     
 

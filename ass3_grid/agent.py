@@ -1,10 +1,11 @@
 import numpy as np
 import torch
-from config import COLLECTION_DISTANCE
+from config import COLLECTION_DISTANCE, MODE
 import torch.nn.functional as F
 from nn_Q import Model
 import random
 import copy
+import itertools
 
 S, A, C, L = 0.05, 0.005, 0.005, 0.005
 
@@ -143,7 +144,29 @@ class Agent:
             prev_q = Q_prev[np.arange(0, len(actions)), actions]
 
             Q_curr = self.Q_target(curr_states)
-            target = rewards + self.discount_factor * torch.max(Q_curr, dim=1).values.detach()
+            
+            # Get policy estimations hat(pi) for all agents, and filter away own
+            piHatResults = [pi(curr_states) for i, pi in enumerate(self.sim_ref.agent_policy_estimations) if i != self.agent_idx]
+
+            # Create list of all possible joint actions
+            joint_actions = list(itertools.product(range(5), repeat=len(piHatResults)))
+
+            # Calc AV
+            AV = 0
+            for joint_action in joint_actions:
+                # TODO: Calc Q value for each joint action
+                Q_val = self.Q_model(curr_states, joint_action)
+
+                # Calc product of all hat(pi) for each joint action
+                joint_likelihood =  1
+                with torch.no_grad():
+                    for piHatResult in piHatResults:
+                        joint_likelihood *= piHatResult
+                    
+                # Multiply Q values with corresponding product of hat(pi) and add to AV
+                AV += Q_val * joint_likelihood
+                
+            target = rewards + self.discount_factor * AV.detach()
             
             # loss_b = F.mse_loss(prev_q.long(), target)
             loss_b = F.mse_loss(prev_q, target.float())

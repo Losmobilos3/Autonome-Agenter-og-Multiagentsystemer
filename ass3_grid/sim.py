@@ -46,7 +46,7 @@ class Simulation:
         self.abs_prior_state = None
 
         # Shared policy approximations hat(pi)
-        self.agent_policy_estimations = [Model(input_size=self.state_size, hidden_size=64) for _ in range(no_agents)]
+        self.agent_policy_estimations = [Model(input_size=self.state_size, hidden_size=64, include_softmax=True) for _ in range(no_agents)]
         self.agent_action_buffers = [ActionDataset(state_size=self.state_size) for _ in range(no_agents)]  # To store past actions for each agent
 
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
@@ -93,11 +93,11 @@ class Simulation:
             decision_id = agent.act()
 
             # Update agent action buffer with newly taken action
-            # self.agent_action_buffers[i].add_data(self.get_state_tensor(i), decision_id)
+            self.agent_action_buffers[i].add_data(self.get_state_tensor(i), decision_id)
 
             # Fit policy approximations hat(pi) here
-            # if step_num and step_num % 20 == 0:
-            #     supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i])
+            if step_num and step_num % 50 == 0:
+                supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i])
         
         self.save_prior_state()
 

@@ -6,7 +6,7 @@ class ActionDataset(Dataset):
     def __init__(self, state_size, max_size=300):
         self.max_size = max_size
         self.states = torch.zeros((max_size, state_size))
-        self.actions = torch.zeros((max_size, 5))
+        self.actions = torch.zeros((max_size, 5)) # Store one-hot encoded selected action
         self.curr_idx = 0
         self.size = 0
 
