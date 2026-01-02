@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 
 sim = Simulation(
-    no_agents= 1,
+    no_agents= 2,
     no_fruits= 20,
     width = 35,
     height = 20,
@@ -21,7 +21,7 @@ ani = animation.FuncAnimation(
     fig=sim.fig,
     func=sim.animate_frame,
     frames=500,
-    interval=5,
+    interval=200,
     blit=True,
     repeat=False
 )

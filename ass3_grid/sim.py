@@ -40,7 +40,7 @@ class Simulation:
         self.agents: list[Agent] = [Agent(self, i) for i in range(no_agents)]
 
         # Initialize fruits
-        self.fruits: list[Fruit] = [Fruit(position=np.random.randint(np.zeros((2, 1)), self.size, (2, 1))) for _ in range(no_fruits)]
+        self.fruits: list[Fruit] = [Fruit(position=np.random.randint(np.zeros((2, 1)), self.size, (2, 1)), level=np.random.randint(1, 3)) for _ in range(no_fruits)]
 
         # Used for learning
         self.abs_prior_state = None
@@ -128,7 +128,7 @@ class Simulation:
 
                 # Give all close agents a reward
                 for agent in close_agents:
-                    agent.give_reward(5) # Reward for collecting a fruit
+                    agent.give_reward(5 * fruit.level) # Reward for collecting a fruit
 
                 # Only pick up 1 fruit per frame
                 break
@@ -136,6 +136,8 @@ class Simulation:
         # Give rewards after all agents have moved
         for agent in self.agents:
             self.give_rewards(agent)
+
+
 
     def give_rewards(self, agent: Agent):
         """Distribute rewards to an agent
@@ -151,9 +153,16 @@ class Simulation:
         dist_to_fruits = np.array([np.linalg.norm(fruit.pos - agent.pos) for fruit in remaining_fruit])
         direction_nearest_fruit = (remaining_fruit[np.argmin(dist_to_fruits)].pos - agent.pos)
         direction_reward = direction_nearest_fruit.T @ agent.vel / (np.linalg.norm(direction_nearest_fruit) * (np.linalg.norm(agent.vel) + 1e-5)) # cos(alpha)
+        # Reward going to the nearest fruit
         agent.give_reward(direction_reward.item() * 0.1)
 
+        # Reward for standing still near a fruit
+        # if np.min(dist_to_fruits) <= COLLECTION_DISTANCE: #! Seems to make the agents wait and never pick up the fruit
+        #     agent.give_reward(0.1)
+
         agent.give_reward(-0.01)  # Small time penalty to encourage efficiency
+
+
 
     def setup_plot(self):
         """Initializes the plot"""
@@ -301,12 +310,12 @@ class Simulation:
         for agent in self.agents:
 
             # Skip if agent is itself
-            if agent == self.agents[agent_idx]:
+            if agent == subject:
                 continue
 
             agent_positions.extend([
-                agent.pos[0] - subject.pos[0], # x-position
-                agent.pos[1] - subject.pos[1], # y-position
+                (agent.pos[0] - subject.pos[0]).item(), # x-position
+                (agent.pos[1] - subject.pos[1]).item(), # y-position
                 agent.level # agent level
             ])
 
@@ -331,7 +340,7 @@ class Simulation:
                 _, dx, dy, picked, level = fruits_with_dist[i]
                 fruit_info.append(dx)
                 fruit_info.append(dy)
-                fruit_info.append(level)
+                fruit_info.append(level - subject.level)
                 fruit_info.append(picked)
             else:
                 # Padding with "picked" fruits (effectively invisible)
@@ -379,7 +388,7 @@ class Simulation:
             dx = fruit["x"] - subject_prior_pos[0]
             dy = fruit["y"] - subject_prior_pos[1]
             dist = (dx**2 + dy**2)**0.5
-            fruits_with_dist.append((dist, dx, dy, fruit["picked"], fruit["level"]))
+            fruits_with_dist.append((dist, dx, dy, fruit["picked"], fruit["level"] - subject_prior["level"]))
             
         fruits_with_dist.sort(key=lambda x: x[0])
 
