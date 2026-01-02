@@ -3,6 +3,8 @@ import torch
 from config import COLLECTION_DISTANCE
 import torch.nn.functional as F
 from nn_Q import Model
+import random
+import copy
 
 S, A, C, L = 0.05, 0.005, 0.005, 0.005
 
@@ -37,10 +39,27 @@ class Agent:
         self.reward = 0
         self.collecting = False
         self.level = level
+
+        # Instanciate models
         self.Q_model = Model(input_size=self.sim_ref.state_size, hidden_size=64)
+        self.Q_target = copy.deepcopy(self.Q_model)
+        self.Q_target.eval()
+        for param in self.Q_target.parameters():
+            param.requires_grad = False
+
         self.discount_factor = 0.9  # Discount factor for future rewards
         self.optim = torch.optim.Adam(self.Q_model.parameters(), lr=0.001)
         self.prior_action = None
+        self.epsilon = 1.0
+        self.epsilon_decay = 0.99995
+        self.epsilon_min = 0.01
+        self.replay_memory = ReplayMemory(capacity=10000)
+
+    def _update_target_model(self):
+        self.Q_target = copy.deepcopy(self.Q_model)
+        self.Q_target.eval()
+        for param in self.Q_target.parameters():
+            param.requires_grad = False
 
     def give_reward(self, reward: float):
         """Give reward to the agent
@@ -66,6 +85,8 @@ class Agent:
         Returns:
             tuple[int, float]: Decision ID, and Agent velocity
         """
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
         self.collecting = False # Reset from prior frame
         decision_id = self.learn()
         # decay learning
@@ -94,10 +115,10 @@ class Agent:
         """
         curr_state = self.sim_ref.get_state_tensor(self.agent_idx)
         Q_val_curr = self.Q_model(curr_state)
-
-        probs = torch.nn.functional.softmax(Q_val_curr, dim=0)
-        # print(Q_val_curr, probs)
-        decision_id = torch.multinomial(probs, num_samples=1).item()
+        if np.random.rand() < self.epsilon:
+            decision_id = torch.tensor(np.random.randint(0, 5))
+        else:
+            decision_id = torch.argmax(Q_val_curr)
 
         # if no prior decision, do not learn
         prior_state = self.sim_ref.get_prior_state(self.agent_idx)
@@ -106,18 +127,35 @@ class Agent:
             reward = self.reward
             self.reward = 0
 
-            # Re-evaluate prior state to get gradient-attached Q-values
-            Q_prev = self.Q_model(prior_state)
-            prev_q = Q_prev[self.prior_action]  # Chosen action Q-value from prior state
+            # Store experience in replay memory
+            self.replay_memory.push(prior_state, self.prior_action, reward, curr_state)
 
-            # Target Q-value (detached) SE DEEP LEARNING SLIDES
-            target = reward + self.discount_factor * torch.max(Q_val_curr).detach()  # reward + best action Q-value from current state
-            loss = F.mse_loss(prev_q, target)
+            # Train on a batch from replay memory
+            if len(self.replay_memory.memory) < 64:
+                batch = self.replay_memory.memory  # Not enough data to train
+            else:
+                batch = random.sample(self.replay_memory.memory, 64)
+
+            # Extract values
+            prior_states, actions, rewards, curr_states = map(torch.stack, zip(*batch))
+
+            Q_prev = self.Q_model(prior_states)
+            prev_q = Q_prev[np.arange(0, len(actions)), actions]
+
+            Q_curr = self.Q_target(curr_states)
+            target = rewards + self.discount_factor * torch.max(Q_curr, dim=1).values.detach()
+            
+            # loss_b = F.mse_loss(prev_q.long(), target)
+            loss_b = F.mse_loss(prev_q, target.float())
 
             self.optim.zero_grad()
-            loss.backward()
+            loss_b.backward()
             self.optim.step()
 
+        if isinstance(decision_id, torch.Tensor):
+            self.prior_action = decision_id.item()
+            return decision_id.item()
+        
         self.prior_action = decision_id
         return decision_id
 
@@ -139,21 +177,18 @@ class Agent:
         return closest_fruit
 
 # NOT USED YET
-class Memory:
+class ReplayMemory(torch.utils.data.Dataset):
     def __init__(self, capacity: int):
         self.capacity = capacity
         self.memory = []
     
-    def push(self, state, action, reward, next_state):
+    def push(self, prior_state, action, reward, curr_state):
         if len(self.memory) >= self.capacity:
             self.memory.pop(0)
-        self.memory.append((state, action, reward, next_state))
+        self.memory.append((prior_state, torch.tensor(action), torch.tensor(reward), curr_state))
     
-    def sample(self, batch_size: int):
-        indices = np.random.choice(len(self.memory), batch_size, replace=False)
-        batch = [self.memory[i] for i in indices]
-        states, actions, rewards, next_states = zip(*batch)
-        return states, actions, rewards, next_states
+    def __getitem__(self, idx):
+        return self.memory[idx]
     
     def __len__(self):
         return len(self.memory)

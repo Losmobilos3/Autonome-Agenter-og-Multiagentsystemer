@@ -16,7 +16,7 @@ class Model(torch.nn.Module):
 
 def supervised_train(model, dataloader):
     model.train()
-    optim = torch.optim.Adam(model.parameters(), lr=0.001)
+    optim = torch.optim.Adam(model.parameters(), lr=0.1)
     for X, y_action in dataloader:
         optim.zero_grad()
 

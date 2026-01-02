@@ -51,15 +51,24 @@ class Simulation:
 
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
 
+    def get_obstructed_cells(self):
+        obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
+        return obstructed
+
+
     def init_env(self):
         """Initialize the environment"""
         for agent in self.agents:
             agent.pos = np.random.randint(np.zeros((2, 1)), self.size, (2,1)).astype(float)
             agent.vel = np.zeros((2, 1))
+            agent._update_target_model()
 
         for fruit in self.fruits:
             fruit.pos = np.random.randint(np.zeros((2, 1)), self.size, (2, 1))
             fruit.picked = 0
+
+        self.abs_prior_state = None
+
 
     def run_episodes(self, no_episodes, max_steps_per_episode):
         """Run _n_ episodes of the simulation
@@ -89,6 +98,8 @@ class Simulation:
             # Fit policy approximations hat(pi) here
             # if step_num and step_num % 20 == 0:
             #     supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i])
+        
+        self.save_prior_state()
 
         # Update the agents' states
         for agent in self.agents:
@@ -126,12 +137,6 @@ class Simulation:
         for agent in self.agents:
             self.give_rewards(agent)
 
-        self.save_prior_state()
-
-    def get_obstructed_cells(self):
-        obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
-        return obstructed
-
     def give_rewards(self, agent: Agent):
         """Distribute rewards to an agent
 
@@ -144,19 +149,11 @@ class Simulation:
 
         # Give reward based on distance to nearest fruit
         dist_to_fruits = np.array([np.linalg.norm(fruit.pos - agent.pos) for fruit in remaining_fruit])
-        min_dist_index = np.argmin(dist_to_fruits)
-        nearest_fruit = remaining_fruit[min_dist_index]
-        
-        min_dist = dist_to_fruits[min_dist_index] if min_dist_index is not None else None
-        if min_dist is not None and min_dist < 5.0:
-            agent.give_reward(1/min(dist_to_fruits)**2)  # Small positive reward to encourage action
-        else:
-            agent.give_reward(-0.01)  # Small negative reward to encourage action
-            
-        # Punish for going away from fruits
-        agentToFruitVec = nearest_fruit.pos - agent.pos
-        directionReward = (agentToFruitVec.T @ agent.vel).item()
-        agent.give_reward(directionReward * 0.01)
+        direction_nearest_fruit = (remaining_fruit[np.argmin(dist_to_fruits)].pos - agent.pos)
+        direction_reward = direction_nearest_fruit.T @ agent.vel / (np.linalg.norm(direction_nearest_fruit) * (np.linalg.norm(agent.vel) + 1e-5)) # cos(alpha)
+        agent.give_reward(direction_reward.item() * 0.1)
+
+        agent.give_reward(-0.01)  # Small time penalty to encourage efficiency
 
     def setup_plot(self):
         """Initializes the plot"""
@@ -354,15 +351,21 @@ class Simulation:
             return None
 
         abs_agents, abs_fruit_info = self.abs_prior_state
-        subject = self.agents[agent_idx]
+        
+        # Find the subject's prior state
+        subject_prior = next((a for a in abs_agents if a["agent_idx"] == agent_idx), None)
+        if subject_prior is None:
+            return None
+            
+        subject_prior_pos = np.array([subject_prior["x"], subject_prior["y"]])
         
         # Extract realtive agent positions, except for agent_idx
         agent_positions = []
         for agent in abs_agents:
             if agent["agent_idx"] == agent_idx:
                 continue
-            agent_positions.append(agent["x"] - subject.pos[0].item())
-            agent_positions.append(agent["y"] - subject.pos[1].item())
+            agent_positions.append(agent["x"] - subject_prior_pos[0])
+            agent_positions.append(agent["y"] - subject_prior_pos[1])
             agent_positions.append(agent["level"])
 
         # Extract relative fruit positions and picked status
@@ -373,8 +376,8 @@ class Simulation:
         for fruit in abs_fruit_info:
             if fruit["picked"]:
                 continue
-            dx = fruit["x"] - subject.pos[0].item()
-            dy = fruit["y"] - subject.pos[1].item()
+            dx = fruit["x"] - subject_prior_pos[0]
+            dy = fruit["y"] - subject_prior_pos[1]
             dist = (dx**2 + dy**2)**0.5
             fruits_with_dist.append((dist, dx, dy, fruit["picked"], fruit["level"]))
             

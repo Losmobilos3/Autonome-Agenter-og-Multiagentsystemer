@@ -5,11 +5,11 @@ from matplotlib import animation
 sim = Simulation(
     no_agents= 1,
     no_fruits= 20,
-    width = 70,
-    height = 40,
+    width = 35,
+    height = 20,
 )
 
-sim.run_episodes(no_episodes=200, max_steps_per_episode=300)
+sim.run_episodes(no_episodes=200, max_steps_per_episode=200)
 
 sim.init_env()
 
@@ -20,8 +20,8 @@ print("START")
 ani = animation.FuncAnimation(
     fig=sim.fig,
     func=sim.animate_frame,
-    frames=300,
-    interval=10,
+    frames=500,
+    interval=5,
     blit=True,
     repeat=False
 )
