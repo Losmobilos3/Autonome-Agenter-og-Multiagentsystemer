@@ -1,0 +1,5 @@
+Starting run with 1 agent(s). (total fruits, fruits level 1, fruits level 2)
+4.0, 4.0, 0.0
+Starting run with 2 agent(s). (total fruits, fruits level 1, fruits level 2)
+11.0, 11.0, 0.0
+Starting run with 3 agent(s). (total fruits, fruits level 1, fruits level 2)

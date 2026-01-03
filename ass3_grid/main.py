@@ -1,4 +1,4 @@
-from ass3_grid.config import FRAMES
+from config import FRAMES
 from sim import Simulation
 import matplotlib
 # matplotlib.use('Qt5Agg')
