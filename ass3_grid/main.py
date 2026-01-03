@@ -5,14 +5,14 @@ matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
-no_agent_runs = [1, 2, 3]
+no_agent_runs = [1, 2, 3, 4 , 5]
 
 
 for no_agents in no_agent_runs:
     print(f"START TRAINING RUN {no_agents}")
 
     with open("SARL_data.txt", "a") as f:
-        f.write(f"Starting run with {no_agents} agent(s). (performance, fruit_level_1, fruit_level_2)\n")
+        f.write(f"Starting run with {no_agents} agent(s). (total fruits, fruit level 1, fruit level 2)\n")
 
     sim = Simulation(
         no_agents= no_agents,
