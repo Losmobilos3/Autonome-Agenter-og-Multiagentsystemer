@@ -55,6 +55,7 @@ class Simulation:
 
         # Shared policy approximations hat(pi)
         self.agent_policy_estimations: list[Model] = [Model(input_size=self.state_size, hidden_size=64, include_softmax=True) for _ in range(no_agents)]
+        self.agent_policy_optimizers: list[torch.optim.Optimizer] = [torch.optim.Adam(model.parameters(), lr=0.001) for model in self.agent_policy_estimations]
         self.agent_action_buffers: list[ActionDataset] = [ActionDataset(state_size=self.state_size) for _ in range(no_agents)]  # To store past actions for each agent
 
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
@@ -113,7 +114,7 @@ class Simulation:
 
             # Fit policy approximations hat(pi) here
             if step_num and step_num % 50 == 0:
-                supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i])
+                supervised_train(self.agent_policy_estimations[i], self.agent_action_buffers[i], optimizer=self.agent_policy_optimizers[i])
         
         self.save_prior_state()
 
@@ -177,7 +178,8 @@ class Simulation:
         direction_nearest_fruit = (remaining_fruit[np.argmin(dist_to_fruits)].pos - agent.pos)
         direction_reward = direction_nearest_fruit.T @ agent.vel / (np.linalg.norm(direction_nearest_fruit) * (np.linalg.norm(agent.vel) + 1e-5)) # cos(alpha)
         # Reward going to the nearest fruit
-        agent.give_reward(direction_reward.item() * 0.1)
+        if direction_reward > 0:
+            agent.give_reward(direction_reward.item() * 0.1)
 
         # Reward for standing still near a fruit
         # if np.min(dist_to_fruits) <= COLLECTION_DISTANCE: #! Seems to make the agents wait and never pick up the fruit

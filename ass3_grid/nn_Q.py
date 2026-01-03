@@ -1,4 +1,5 @@
 import torch
+import torch.utils.data
 
 class Model(torch.nn.Module):
     def __init__(self, input_size, no_agents=1, hidden_size=64, include_softmax=False):
@@ -19,16 +20,22 @@ class Model(torch.nn.Module):
         return decision
     
 
-def supervised_train(model, dataloader):
+def supervised_train(model, dataset, optimizer=None, batch_size=32, epochs=1):
     model.train()
-    optim = torch.optim.Adam(model.parameters(), lr=0.1)
-    for X, y_action in dataloader:
-        optim.zero_grad()
+    if optimizer is None:
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    
+    for _ in range(epochs):
+        for X, y_action in dataloader:
+            optimizer.zero_grad()
 
-        Q_vals = model(X)
+            Q_vals = model(X)
 
-        loss_decision = torch.nn.functional.cross_entropy(Q_vals, y_action)
-        loss = loss_decision
-        loss.backward()
+            loss_decision = torch.nn.functional.cross_entropy(Q_vals, y_action)
+            loss = loss_decision
+            loss.backward()
 
-        optim.step()
+            optimizer.step()
+    return optimizer

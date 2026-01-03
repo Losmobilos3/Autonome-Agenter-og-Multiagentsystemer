@@ -146,10 +146,10 @@ class Agent:
             prev_AV = AV_prev[np.arange(0, len(actions)), actions]
 
             # Calc AV
-            AV = self.calc_AV(curr_states)
+            AV_next = self.calc_AV(curr_states, model=self.Q_target)
 
             # Calculate target for model
-            target = rewards + self.discount_factor * torch.max(AV, dim=1)[0].detach()
+            target = rewards + self.discount_factor * torch.max(AV_next, dim=1)[0].detach()
 
             # loss_b = F.mse_loss(prev_q.long(), target)
             loss_b = F.mse_loss(prev_AV, target.float())
@@ -165,10 +165,12 @@ class Agent:
         self.prior_action = decision_id
         return decision_id
 
-    def calc_AV(self, states) -> torch.Tensor:
+    def calc_AV(self, states, model=None) -> torch.Tensor:
+        if model is None:
+            model = self.Q_model
+
         no_actions = 5
         batch_size = states.shape[0]
-        device = states.device
 
         # Get policy estimations hat(pi) for all agents, and filter away own
         piHatResults = [pi(states) for i, pi in enumerate(self.sim_ref.agent_policy_estimations) if i != self.agent_idx]
@@ -176,14 +178,14 @@ class Agent:
         num_other_agents = len(piHatResults)
         
         if num_other_agents == 0:
-            return self.Q_model(states)
+            return model(states)
 
         # Vectorized calculation of AV
         
         # 1. Create all possible joint actions indices
         # Shape: (K, num_other_agents)
         joint_actions_list = list(itertools.product(range(no_actions), repeat=num_other_agents))
-        joint_actions_indices = torch.tensor(joint_actions_list, device=device, dtype=torch.long)
+        joint_actions_indices = torch.tensor(joint_actions_list, dtype=torch.long)
         K = joint_actions_indices.shape[0]
 
         # 2. Create one-hot representations
@@ -201,13 +203,13 @@ class Agent:
 
         # 4. Run model
         # Output: (batch_size * K, no_actions)
-        Q_values_flat = self.Q_model(states_expanded, joint_actions_expanded)
+        Q_values_flat = model(states_expanded, joint_actions_expanded)
         # Reshape: (batch_size, K, no_actions)
         Q_values = Q_values_flat.view(batch_size, K, no_actions)
 
         # 5. Calculate joint likelihoods
         # joint_likelihoods: (batch_size, K)
-        joint_likelihoods = torch.ones((batch_size, K), device=device)
+        joint_likelihoods = torch.ones((batch_size, K))
         
         with torch.no_grad():
             for i, pi_hat in enumerate(piHatResults):
