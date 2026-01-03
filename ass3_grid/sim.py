@@ -52,8 +52,8 @@ class Simulation:
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
 
         ### Performance metrics
-        self.total_fruits_collected = 0
-        self.steps_used = 0
+        self.total_fruits_collected: np.ndarray = np.zeros(2)
+        self.steps_used: int = 0
 
     def get_obstructed_cells(self):
         obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
@@ -74,7 +74,7 @@ class Simulation:
         self.abs_prior_state = None
 
         # Reset performance metrics
-        self.total_fruits_collected = 0
+        self.total_fruits_collected = np.zeros(2)
         self.steps_used = 0
 
 
@@ -135,7 +135,7 @@ class Simulation:
                 fruit.picked = 1
 
                 # Performance metrics
-                self.total_fruits_collected += 1
+                self.total_fruits_collected[fruit.level - 1] += 1
 
                 # Give all close agents a reward
                 for agent in close_agents:
