@@ -31,32 +31,37 @@ class Simulation:
             width (float): Simulation width
             height (float): Simulation height
         """
-        self.size = np.vstack([width, height])
+        self.size: np.ndarray = np.vstack([width, height])
+        self.no_agents: int = no_agents
 
         # Define size of state vector
-        self.state_size = 3 * (no_agents - 1) + 4 * NEAREST_FRUITS_COUNT
+        self.state_size: int = 3 * (no_agents - 1) + 4 * NEAREST_FRUITS_COUNT
 
         # Initialize Worker agents
-        self.agents: list[Agent] = [Agent(self, i) for i in range(no_agents)]
+        self.agents: list[Agent] = [
+            Agent(self, i) for i in range(no_agents)
+        ]
 
         # Initialize fruits
-        self.fruits: list[Fruit] = [Fruit(position=np.random.randint(np.zeros((2, 1)), self.size, (2, 1)), level=np.random.randint(1, 3)) for _ in range(no_fruits)]
+        self.fruits: list[Fruit] = [
+            Fruit(position=np.random.randint(np.zeros((2, 1)), self.size, (2, 1)), level=np.random.randint(1, 3)) for _ in range(no_fruits)
+        ]
 
         # Used for learning
-        self.abs_prior_state = None
+        self.abs_prior_state: dict = None
 
         # Shared policy approximations hat(pi)
-        self.agent_policy_estimations = [Model(input_size=self.state_size, hidden_size=64, include_softmax=True) for _ in range(no_agents)]
-        self.agent_action_buffers = [ActionDataset(state_size=self.state_size) for _ in range(no_agents)]  # To store past actions for each agent
+        self.agent_policy_estimations: list[Model] = [Model(input_size=self.state_size, hidden_size=64, include_softmax=True) for _ in range(no_agents)]
+        self.agent_action_buffers: list[ActionDataset] = [ActionDataset(state_size=self.state_size) for _ in range(no_agents)]  # To store past actions for each agent
 
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
 
-    def get_obstructed_cells(self):
+    def get_obstructed_cells(self) -> list[np.ndarray]:
         obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
         return obstructed
 
 
-    def init_env(self):
+    def init_env(self) -> None:
         """Initialize the environment"""
         for agent in self.agents:
             agent.pos = np.random.randint(np.zeros((2, 1)), self.size, (2,1)).astype(float)
@@ -70,7 +75,7 @@ class Simulation:
         self.abs_prior_state = None
 
 
-    def run_episodes(self, no_episodes, max_steps_per_episode):
+    def run_episodes(self, no_episodes, max_steps_per_episode) -> None:
         """Run _n_ episodes of the simulation
 
         Args:
@@ -83,7 +88,7 @@ class Simulation:
             for i in range(max_steps_per_episode):
                 self.step(i)
 
-    def step(self, step_num: int = None):
+    def step(self, step_num: int = None) -> None:
         """Take a step in the simulation
         
         Args:
@@ -139,7 +144,7 @@ class Simulation:
 
 
 
-    def give_rewards(self, agent: Agent):
+    def give_rewards(self, agent: Agent) -> None:
         """Distribute rewards to an agent
 
         Args:
@@ -279,7 +284,7 @@ class Simulation:
         # TODO: ?
         pass
 
-    def save_prior_state(self):
+    def save_prior_state(self) -> dict:
         """Save the absolute prior state"""
         # Save prior absolute state as a tuple of lists of dicts
         self.abs_prior_state = (

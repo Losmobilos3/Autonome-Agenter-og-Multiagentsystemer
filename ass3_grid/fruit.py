@@ -5,4 +5,3 @@ class Fruit:
         self.pos = position
         self.level = level
         self.picked = 0
-        
