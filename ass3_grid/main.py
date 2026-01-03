@@ -1,3 +1,4 @@
+from ass3_grid.config import FRAMES
 from sim import Simulation
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -28,11 +29,10 @@ for no_agents in no_agent_runs:
 
     print(f"START ANIMATION SAVE FOR RUN {no_agents}")
 
-    frames = 500
     ani = animation.FuncAnimation(
         fig=sim.fig,
         func=sim.animate_frame,
-        frames=frames,
+        frames=FRAMES,
         interval=1,
         blit=True,
         repeat=False

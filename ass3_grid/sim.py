@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 
 import numpy as np
 from agent import Agent
+from ass3_grid.config import FRAMES
 from fruit import Fruit
 from config import AGENT_PLOT_SIZE, FRUIT_PLOT_SIZE, COLLECTION_DISTANCE, NEAREST_FRUITS_COUNT
 from matplotlib.lines import Line2D 
@@ -285,7 +286,7 @@ class Simulation:
         self.reward_text.set_text(f"Agent 0 Reward: {self.agents[0].reward:.2f}")
 
         # Save performance metrics
-        if i >= 500:
+        if i >= FRAMES - 1:
             self.save_metrics()
         
         # Return all updated plot objects (text patches and stems)
@@ -296,7 +297,7 @@ class Simulation:
         if self.steps_used > 0:
             performance = sum(self.total_fruits_collected) / self.steps_used
         else:
-            performance = sum(self.total_fruits_collected) / 500
+            performance = sum(self.total_fruits_collected) / FRAMES
 
         with open("SARL_data.txt", "a") as f:
             f.write(f"{performance:.5f}, {self.total_fruits_collected[0]}, {self.total_fruits_collected[1]}\n")
