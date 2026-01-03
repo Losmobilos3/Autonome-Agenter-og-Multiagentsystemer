@@ -12,11 +12,11 @@ for no_agents in no_agent_runs:
     print(f"START TRAINING RUN {no_agents}")
 
     with open("SARL_data.txt", "a") as f:
-        f.write(f"Starting run with {no_agents} agent(s). (total fruits, fruit level 1, fruit level 2)\n")
+        f.write(f"Starting run with {no_agents} agent(s). (total fruits)\n")
 
     sim = Simulation(
         no_agents= no_agents,
-        no_fruits= 30,
+        no_fruits= 20, # 2/3 of MARL, as SARL cannot pick up level 2
         width = 35,
         height = 20,
     )
