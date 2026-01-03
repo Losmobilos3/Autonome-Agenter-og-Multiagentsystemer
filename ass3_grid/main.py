@@ -40,7 +40,7 @@ for no_agents in no_agent_runs:
     print("Performance (fruits pr. step): ", performance)
 
     try:
-        ani.save(f'simulation_animation_{no_agents}.mp4', writer='ffmpeg', fps=24)
+        ani.save(f'MARL_simulation_animation_{no_agents}.mp4', writer='ffmpeg', fps=24)
         print("Animation saved successfully")
     except Exception as e:
         print(f"Error saving animation: {e}")
