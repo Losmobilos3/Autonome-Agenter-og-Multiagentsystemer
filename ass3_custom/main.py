@@ -2,34 +2,47 @@ from sim import Simulation
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
-sim = Simulation(
-    no_agents= 1,
-    no_fruits= 20,
-    width = 70,
-    height = 40,
-)
+no_agent_runs = [1, 2, 3, 4, 5]
 
-sim.run_episodes(no_episodes=40, max_steps_per_episode=300)
+for no_agents in no_agent_runs:
+    print(f"START TRAINING RUN {no_agents}")
 
-sim.init_env()
+    sim = Simulation(
+        no_agents= no_agents,
+        no_fruits= 30,
+        width = 35,
+        height = 20,
+    )
 
-sim.setup_plot()
+    sim.run_episodes(no_episodes=100, max_steps_per_episode=300)
 
-print("START")
+    sim.init_env()
 
-ani = animation.FuncAnimation(
-    fig=sim.fig,
-    func=sim.animate_frame,
-    frames=1000,
-    interval=60,
-    blit=True,
-    repeat=False
-)
+    sim.setup_plot()
 
-try:
-    ani.save('simulation_animation.mp4', writer='ffmpeg', fps=60)
-    print("Animation saved successfully")
-except Exception as e:
-    print(f"Error saving animation: {e}")
+    print(f"START ANIMATION SAVE FOR RUN {no_agents}")
 
-plt.close(sim.fig)
+    frames = 500
+    ani = animation.FuncAnimation(
+        fig=sim.fig,
+        func=sim.animate_frame,
+        frames=frames,
+        interval=1,
+        blit=True,
+        repeat=False
+    )
+
+    if sim.steps_used > 0:
+        performance = sim.total_fruits_collected / sim.steps_used
+    else:
+        performance = sim.total_fruits_collected / frames
+
+    print("Performance (fruits pr. step): ", performance)
+
+    try:
+        ani.save(f'simulation_animation_{no_agents}.mp4', writer='ffmpeg', fps=24)
+        print("Animation saved successfully")
+    except Exception as e:
+        print(f"Error saving animation: {e}")
+
+    plt.close(sim.fig)

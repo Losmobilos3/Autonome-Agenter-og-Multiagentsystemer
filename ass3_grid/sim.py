@@ -51,6 +51,10 @@ class Simulation:
 
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
 
+        ### Performance metrics
+        self.total_fruits_collected = 0
+        self.steps_used = 0
+
     def get_obstructed_cells(self):
         obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
         return obstructed
@@ -68,6 +72,10 @@ class Simulation:
             fruit.picked = 0
 
         self.abs_prior_state = None
+
+        # Reset performance metrics
+        self.total_fruits_collected = 0
+        self.steps_used = 0
 
 
     def run_episodes(self, no_episodes, max_steps_per_episode):
@@ -126,12 +134,20 @@ class Simulation:
                 # Pick the fruit
                 fruit.picked = 1
 
+                # Performance metrics
+                self.total_fruits_collected += 1
+
                 # Give all close agents a reward
                 for agent in close_agents:
                     agent.give_reward(5 * fruit.level) # Reward for collecting a fruit
 
                 # Only pick up 1 fruit per frame
                 break
+        
+        # Check if all fruits have been picked up, and record the step count
+        if all([fruit.picked for fruit in self.fruits]):
+            self.steps_used = step_num
+
 
         # Give rewards after all agents have moved
         for agent in self.agents:
