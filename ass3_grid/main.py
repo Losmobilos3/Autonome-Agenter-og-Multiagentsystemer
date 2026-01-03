@@ -11,7 +11,7 @@ for no_agents in no_agent_runs:
     print(f"START TRAINING RUN {no_agents}")
 
     with open("MARL_data.txt", "a") as f:
-        f.write(f"Starting run with {no_agents} agents. (performance, fruits_level_1, fruits_level_2)\n")
+        f.write(f"Starting run with {no_agents} agent(s). (performance, fruits_level_1, fruits_level_2)\n")
 
     sim = Simulation(
         no_agents= no_agents,
