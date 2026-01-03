@@ -28,7 +28,7 @@ class State:
         self.agents = agents
         self.fruits = fruits
 
-    def to_tensor(self):
+    def to_tensor(self) -> np.ndarray:
         """Flatten the state to be used in training
 
         :returns 1D array state tensor

@@ -22,9 +22,18 @@ class Fruit:
             random.randint(0,SIMULATION_SIZE - 1)
         ])
 
-        self.level: int = 0 # Always initialize at level 1 (Can be updated later)
+        self.level: int = 1 # Always initialize at level 1 (Can be updated later)
 
         self.collected: bool = False # Flag denoting the collected state
+
+    def reset(self) -> None:
+        """Reset the fruit in a random position"""
+        self.position: np.ndarray = np.array([
+            random.randint(0,SIMULATION_SIZE - 1),
+            random.randint(0,SIMULATION_SIZE - 1)
+        ])
+        self.level: int = 1
+        self.collected: bool = False
 
     def to_tensor(self) -> np.ndarray:
         """Convert fruit to tensor

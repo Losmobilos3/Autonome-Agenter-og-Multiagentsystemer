@@ -8,9 +8,10 @@ from torch import Tensor
 import torch.nn.functional as F
 
 from Assignment_3_Grid.Action import Action
+from Assignment_3_Grid.Fruit import Fruit
 from Assignment_3_Grid.Model import Model
 from Assignment_3_Grid.State import State
-from Assignment_3_Grid.settings import SIMULATION_SIZE, N_AGENTS, N_FRUITS
+from Assignment_3_Grid.settings import SIMULATION_SIZE, N_AGENTS, N_FRUITS, EPSILON, DISCOUNT_FACTOR
 
 
 class Agent:
@@ -60,14 +61,7 @@ class Agent:
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
-        self.discount_factor = 0.99
-
-        self.epsilon = 0.1 # Exploration factor
-
-    def act(
-            self,
-            current_state: State
-    ) -> Action:
+    def act(self, current_state: State) -> Action:
         """The Agent observes the game state, and takes an action
 
         :arg current_state: current game state
@@ -116,15 +110,15 @@ class Agent:
         :returns: Agent action
         """
 
-        # NOTE: Not done!
-
+        # Compute Q-values and append to history
         self.q_history.append(
             self.model(
                 self.state_action_history[-1][0] # Get the current state
             )
         )
 
-        if np.random.random() < self.epsilon:
+        # Utilize epsilon to sometimes explorer randomly
+        if np.random.random() < EPSILON:
             action_id = torch.tensor(np.random.randint(0, 5))
         else:
             action_id = torch.argmax(self.q_history[-1])
@@ -132,7 +126,7 @@ class Agent:
         if len(self.state_action_history) > 1: # Check if there exists prior history
             previous_reward = self.reward_history[-1]
 
-            target = previous_reward + self.discount_factor * torch.max(self.q_history[-1]).detach()
+            target = previous_reward + DISCOUNT_FACTOR * torch.max(self.q_history[-1]).detach()
             loss = F.mse_loss(self.q_history[-2], target)
 
             self.optimizer.zero_grad()
@@ -141,13 +135,40 @@ class Agent:
 
         return Action(action_id)
 
-    def reward(self):
+    def reward(self) -> None:
         """Agent reward function
 
         :return:
         """
-        # NOTE: The states and actions needed to compute the reward should be in the state action history
+        # NOTE: This is where we are... write the reward function
+
+        # NOTE: The states and actions needed to compute
+        # the reward should be in the state action history
+
+        remaining_fruits: List[Fruit] = [
+            fruit for fruit in self.state_action_history[-1][0].fruits if not fruit.collected
+        ]
+        if not remaining_fruits:
+            return
+
+        # Give reward based on distance to nearest fruit
+        distance_to_fruits = np.array([
+            np.linalg.norm(fruit.position - self.position) for fruit in remaining_fruits
+        ])
+        nearest_fruit = remaining_fruits[np.argmin(distance_to_fruits)]
+
+        reward = shortest_distance
+
         pass
+
+    def reset(self) -> None:
+        """Reset the agent position, level and collecting flag"""
+        self.position: np.ndarray = np.array([
+            random.randint(0, SIMULATION_SIZE - 1),
+            random.randint(0, SIMULATION_SIZE - 1)
+        ])
+        self.level: int = 1
+        self.collecting = False
 
     def to_tensor(self) -> np.ndarray:
         return np.concatenate(
