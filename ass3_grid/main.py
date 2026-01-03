@@ -1,4 +1,6 @@
 from sim import Simulation
+import matplotlib
+matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
