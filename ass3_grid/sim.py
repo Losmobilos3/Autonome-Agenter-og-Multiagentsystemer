@@ -42,9 +42,12 @@ class Simulation:
             Agent(self, i) for i in range(no_agents)
         ]
 
+        def random_level_gen(ratio_1_2: float = 0.7):
+            return 1 if np.random.rand() < ratio_1_2 else 2
+
         # Initialize fruits
         self.fruits: list[Fruit] = [
-            Fruit(position=np.random.randint(np.zeros((2, 1)), self.size, (2, 1)), level=np.random.randint(1, 3)) for _ in range(no_fruits)
+            Fruit(position=np.random.randint(np.zeros((2, 1)), self.size, (2, 1)), level=random_level_gen()) for _ in range(no_fruits)
         ]
 
         # Used for learning
@@ -55,6 +58,10 @@ class Simulation:
         self.agent_action_buffers: list[ActionDataset] = [ActionDataset(state_size=self.state_size) for _ in range(no_agents)]  # To store past actions for each agent
 
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
+
+        ### Variables used for performance metrics
+        self.total_fruits_collected: int = 0
+        self.steps_used: int = 0
 
     def get_obstructed_cells(self) -> list[np.ndarray]:
         obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
@@ -73,6 +80,10 @@ class Simulation:
             fruit.picked = 0
 
         self.abs_prior_state = None
+
+        ## Reset performance metrics
+        self.total_fruits_collected = 0
+        self.steps_used = 0
 
 
     def run_episodes(self, no_episodes, max_steps_per_episode) -> None:
@@ -129,7 +140,10 @@ class Simulation:
             # Check if the fruit can be collected
             if fruit.level <= collection_level:
                 # Pick the fruit
-                fruit.picked = 1
+                fruit.picked = True
+                self.total_fruits_collected += 1 # Count the collected fruits
+                if self.total_fruits_collected >= self.no_fruits:
+                    self.steps_used = step_num
 
                 # Give all close agents a reward
                 for agent in close_agents:
@@ -205,7 +219,7 @@ class Simulation:
             y_stem_start = f.pos[1] + FRUIT_PLOT_SIZE/1000 # Adjust this offset as needed for visual appeal
             # A tiny horizontal shift for a slight curve, and then up
             x_stem_end = x_stem_start + FRUIT_PLOT_SIZE / 800 
-            y_stem_end = y_stem_start + FRUIT_PLOT_SIZE / 1000 * 4
+            y_stem_end = y_stem_start + FRUIT_PLOT_SIZE / 1000
 
             stem_line = Line2D(
                 [x_stem_start, x_stem_end], 
@@ -229,16 +243,16 @@ class Simulation:
             self.agent_level_patches.append(text_patch)
         
         # Add reward display for the first agent
-        self.reward_text = self.ax.text(
-            10, self.size[1] - 10,  # Top-left corner
-            f"Agent 0 Reward: {self.agents[0].reward:.2f}",
-            fontsize=14, color='black',
-            bbox=dict(facecolor='white', edgecolor='black', alpha=0.8)
-        )
+        # self.reward_text = self.ax.text(
+        #     10, self.size[1] - 10,  # Top-left corner
+        #     f"Agent 0 Reward: {self.agents[0].reward:.2f}",
+        #     fontsize=14, color='black',
+        #     bbox=dict(facecolor='white', edgecolor='black', alpha=0.8)
+        # )
         
         # Return ALL artists that need to be redrawn
         return (*self.fruit_level_patches, *self.agent_level_patches,
-                *self.fruit_stems, self.reward_text) # Include the stems and reward text
+                *self.fruit_stems)#, self.reward_text) # Include the stems and reward text
         
     def animate_frame(self, i):
         """Animates frame _i_
@@ -267,7 +281,7 @@ class Simulation:
             x_stem_start = fruit.pos[0] 
             y_stem_start = fruit.pos[1] + FRUIT_PLOT_SIZE/1000
             x_stem_end = x_stem_start + FRUIT_PLOT_SIZE / 800 
-            y_stem_end = y_stem_start + FRUIT_PLOT_SIZE / 1000 * 4
+            y_stem_end = y_stem_start + FRUIT_PLOT_SIZE / 1000
             self.fruit_stems[j].set_data([x_stem_start, x_stem_end], [y_stem_start, y_stem_end])
 
         # Update reward display for the first agent

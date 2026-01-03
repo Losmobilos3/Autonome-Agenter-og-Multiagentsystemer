@@ -168,39 +168,61 @@ class Agent:
     def calc_AV(self, states) -> torch.Tensor:
         no_actions = 5
         batch_size = states.shape[0]
+        device = states.device
 
         # Get policy estimations hat(pi) for all agents, and filter away own
         piHatResults = [pi(states) for i, pi in enumerate(self.sim_ref.agent_policy_estimations) if i != self.agent_idx]
-
-        # Create list of all possible joint actions
-        joint_actions = list(itertools.product(range(no_actions), repeat=len(piHatResults)))
         
-        AV = torch.zeros((batch_size, no_actions))
-        for joint_action in joint_actions:
-            joint_action = list(joint_action)
-            # One-hot encode and concat joint action
-            one_hot_joint_action = []
-            for action in joint_action:
-                action = torch.tensor(action).long()
-                action = F.one_hot(action, num_classes=no_actions).float()
-                one_hot_joint_action.append(action)
-            
-            # Stack and flatten, then expand to batch size
-            one_hot_joint_action = torch.stack(one_hot_joint_action).flatten().unsqueeze(0).expand(batch_size, -1)
+        num_other_agents = len(piHatResults)
+        
+        if num_other_agents == 0:
+            return self.Q_model(states)
 
-            Q_val = self.Q_model(states, one_hot_joint_action)
+        # Vectorized calculation of AV
+        
+        # 1. Create all possible joint actions indices
+        # Shape: (K, num_other_agents)
+        joint_actions_list = list(itertools.product(range(no_actions), repeat=num_other_agents))
+        joint_actions_indices = torch.tensor(joint_actions_list, device=device, dtype=torch.long)
+        K = joint_actions_indices.shape[0]
 
-            # Calc product of all hat(pi) for each joint action
-            joint_likelihood = torch.ones((batch_size, 1))
-            with torch.no_grad():
-                for i, piHatResult in enumerate(piHatResults):
-                    # piHatResult is [batch_size, 5]
-                    # We want the probability of action joint_action[i] for each batch element
-                    probs = piHatResult[:, joint_action[i]].unsqueeze(1)
-                    joint_likelihood *= probs
-                
-            # Multiply Q values with corresponding product of hat(pi) and add to AV
-            AV += Q_val * joint_likelihood
+        # 2. Create one-hot representations
+        # Shape: (K, num_other_agents, no_actions)
+        joint_actions_one_hot = F.one_hot(joint_actions_indices, num_classes=no_actions).float()
+        # Flatten: (K, num_other_agents * no_actions)
+        joint_actions_one_hot_flat = joint_actions_one_hot.view(K, -1)
+
+        # 3. Prepare inputs for the model
+        # Expand states: (batch_size * K, state_dim)
+        states_expanded = states.unsqueeze(1).expand(batch_size, K, -1).reshape(batch_size * K, -1)
+        
+        # Expand joint actions: (batch_size * K, joint_dim)
+        joint_actions_expanded = joint_actions_one_hot_flat.unsqueeze(0).expand(batch_size, K, -1).reshape(batch_size * K, -1)
+
+        # 4. Run model
+        # Output: (batch_size * K, no_actions)
+        Q_values_flat = self.Q_model(states_expanded, joint_actions_expanded)
+        # Reshape: (batch_size, K, no_actions)
+        Q_values = Q_values_flat.view(batch_size, K, no_actions)
+
+        # 5. Calculate joint likelihoods
+        # joint_likelihoods: (batch_size, K)
+        joint_likelihoods = torch.ones((batch_size, K), device=device)
+        
+        with torch.no_grad():
+            for i, pi_hat in enumerate(piHatResults):
+                # pi_hat: (batch_size, no_actions)
+                # Select probabilities for the actions taken by agent i in each joint action k
+                # joint_actions_indices[:, i] gives the action index for agent i in joint action k
+                probs = pi_hat[:, joint_actions_indices[:, i]] # (batch_size, K)
+                joint_likelihoods *= probs
+
+        # 6. Weighted sum
+        # AV = sum_k (Q(s, a, a_{-i}) * P(a_{-i}|s))
+        # weighted_Q: (batch_size, K, no_actions)
+        weighted_Q = Q_values * joint_likelihoods.unsqueeze(-1)
+        
+        AV = weighted_Q.sum(dim=1) # (batch_size, no_actions)
             
         return AV
 
