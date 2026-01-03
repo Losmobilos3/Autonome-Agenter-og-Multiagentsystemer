@@ -53,7 +53,7 @@ class Simulation:
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
 
         ### Performance metrics
-        self.total_fruits_collected: int = 0
+        self.total_fruits_collected: np.ndarray = np.zeros(2)
 
     def get_obstructed_cells(self):
         obstructed = [agent.pos for agent in self.agents] + [f.pos for f in self.fruits if not f.picked]
@@ -74,7 +74,7 @@ class Simulation:
         self.abs_prior_state = None
 
         # Reset performance metrics
-        self.total_fruits_collected = 0
+        self.total_fruits_collected = np.zeros(2)
 
 
     def run_episodes(self, no_episodes, max_steps_per_episode):
@@ -289,7 +289,7 @@ class Simulation:
 
     def save_metrics(self):
         with open("SARL_data.txt", "a") as f:
-            f.write(f"{self.total_fruits_collected}\n")
+            f.write(f"{sum(self.total_fruits_collected)}, {self.total_fruits_collected[0]}, {self.total_fruits_collected[1]}\n")
 
     def save_prior_state(self):
         """Save the absolute prior state"""
