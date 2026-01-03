@@ -1,3 +1,4 @@
+from ass3_grid.config import FRAMES
 from sim import Simulation
 import matplotlib
 matplotlib.use('Qt5Agg')
@@ -6,46 +7,40 @@ from matplotlib import animation
 
 no_agent_runs = [1, 2, 3, 4, 5]
 
-with open("data.txt", "w") as f:
-    f.write("no_agents, performance, fruits_1, fruits_2\n")
-    for no_agents in no_agent_runs:
-        print(f"START TRAINING RUN {no_agents}")
+for no_agents in no_agent_runs:
+    print(f"START TRAINING RUN {no_agents}")
 
-        sim = Simulation(
-            no_agents= no_agents,
-            no_fruits= 30,
-            width = 35,
-            height = 20,
-        )
+    with open("MARL_data.txt", "a") as f:
+        f.write(f"Starting run with {no_agents} agents. (performance, fruits_level_1, fruits_level_2)\n")
 
-        sim.run_episodes(no_episodes=100, max_steps_per_episode=300)
+    sim = Simulation(
+        no_agents= no_agents,
+        no_fruits= 30,
+        width = 35,
+        height = 20,
+    )
 
-        sim.init_env()
+    sim.run_episodes(no_episodes=100, max_steps_per_episode=300)
 
-        sim.setup_plot()
+    sim.init_env()
 
-        print(f"START ANIMATION SAVE FOR RUN {no_agents}")
+    sim.setup_plot()
 
-        ani = animation.FuncAnimation(
-            fig=sim.fig,
-            func=sim.animate_frame,
-            frames=500,
-            interval=1,
-            blit=True,
-            repeat=False
-        )
+    print(f"START ANIMATION SAVE FOR RUN {no_agents}")
 
-        if sim.steps_used > 0:
-            performance = sum(sim.total_fruits_collected) / sim.steps_used
-        else:
-            performance = sum(sim.total_fruits_collected) / 500
+    ani = animation.FuncAnimation(
+        fig=sim.fig,
+        func=sim.animate_frame,
+        frames=FRAMES,
+        interval=1,
+        blit=True,
+        repeat=False
+    )
 
-        f.write(f"{no_agents}, {performance}, {sim.total_fruits_collected[0]}, {sim.total_fruits_collected[1]}\n")
+    try:
+        ani.save(f'MARL_simulation_animation_{no_agents}.mp4', writer='ffmpeg', fps=24)
+        print("Animation saved successfully")
+    except Exception as e:
+        print(f"Error saving animation: {e}")
 
-        try:
-            ani.save(f'MARL_simulation_animation_{no_agents}.mp4', writer='ffmpeg', fps=24)
-            print("Animation saved successfully")
-        except Exception as e:
-            print(f"Error saving animation: {e}")
-
-        plt.close(sim.fig)
+    plt.close(sim.fig)
