@@ -287,13 +287,13 @@ class Simulation:
             self.fruit_stems[j].set_data([x_stem_start, x_stem_end], [y_stem_start, y_stem_end])
 
         # Update reward display for the first agent
-        self.reward_text.set_text(f"Agent 0 Reward: {self.agents[0].reward:.2f}")
+        # self.reward_text.set_text(f"Agent 0 Reward: {self.agents[0].reward:.2f}")
 
         # Save performance metrics
         self.save_metrics()
         
         # Return all updated plot objects (text patches and stems)
-        return (*self.fruit_level_patches, *self.agent_level_patches, *self.fruit_stems, self.reward_text) 
+        return (*self.fruit_level_patches, *self.agent_level_patches, *self.fruit_stems)#, self.reward_text) 
     
 
     def save_metrics(self):
