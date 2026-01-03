@@ -5,6 +5,7 @@ from matplotlib import animation
 no_agent_runs = [1, 2, 3, 4, 5]
 
 with open("data.txt", "w") as f:
+    f.write("no_agents, performance, fruits_1, fruits_2")
     for no_agents in no_agent_runs:
         print(f"START TRAINING RUN {no_agents}")
 
