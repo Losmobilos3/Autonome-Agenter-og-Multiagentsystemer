@@ -165,7 +165,8 @@ class Simulation:
         direction_nearest_fruit = (remaining_fruit[np.argmin(dist_to_fruits)].pos - agent.pos)
         direction_reward = direction_nearest_fruit.T @ agent.vel / (np.linalg.norm(direction_nearest_fruit) * (np.linalg.norm(agent.vel) + 1e-5)) # cos(alpha)
         # Reward going to the nearest fruit
-        agent.give_reward(direction_reward.item() * 0.1)
+        if direction_reward > 0:
+            agent.give_reward(direction_reward.item() * 0.1)
 
         # Reward for standing still near a fruit
         # if np.min(dist_to_fruits) <= COLLECTION_DISTANCE: #! Seems to make the agents wait and never pick up the fruit
