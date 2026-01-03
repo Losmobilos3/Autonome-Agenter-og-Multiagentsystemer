@@ -51,7 +51,7 @@ class Simulation:
         ]
 
         # Used for learning
-        self.abs_prior_state: dict = None
+        self.abs_prior_state: dict = {}
 
         # Shared policy approximations hat(pi)
         self.agent_policy_estimations: list[Model] = [Model(input_size=self.state_size, hidden_size=64, include_softmax=True) for _ in range(no_agents)]
@@ -60,7 +60,7 @@ class Simulation:
         self.fig, self.ax = plt.subplots(figsize=(17.5, 10))
 
         ### Variables used for performance metrics
-        self.total_fruits_collected: int = 0
+        self.total_fruits_collected: np.ndarray = np.zeros(2)
         self.steps_used: int = 0
 
     def get_obstructed_cells(self) -> list[np.ndarray]:
@@ -82,7 +82,7 @@ class Simulation:
         self.abs_prior_state = None
 
         ## Reset performance metrics
-        self.total_fruits_collected = 0
+        self.total_fruits_collected = np.zeros(2) # Array to count fruits collected at levels (index = level - 1)
         self.steps_used = 0
 
 
@@ -142,7 +142,8 @@ class Simulation:
                 # Pick the fruit
                 fruit.picked = True
 
-                self.total_fruits_collected += 1 # Count the collected fruits
+                # Count the collected fruit
+                self.total_fruits_collected[fruit.level - 1] += 1 # Count the collected fruits
 
                 # Give all close agents a reward
                 for agent in close_agents:
@@ -151,6 +152,7 @@ class Simulation:
                 # Only pick up 1 fruit per frame
                 break
 
+        # Record the step index if all fruits have been picked
         if all([fruit.picked for fruit in self.fruits]):
             self.steps_used = step_num
 
@@ -266,7 +268,7 @@ class Simulation:
             print(f"Animating frame {i}")
 
         # Update the simulation state
-        self.step() 
+        self.step(i)
         
         # Update agent text positions
         for j, agent in enumerate(self.agents):
