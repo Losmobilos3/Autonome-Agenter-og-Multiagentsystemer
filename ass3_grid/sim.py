@@ -141,9 +141,8 @@ class Simulation:
             if fruit.level <= collection_level:
                 # Pick the fruit
                 fruit.picked = True
+
                 self.total_fruits_collected += 1 # Count the collected fruits
-                if self.total_fruits_collected >= self.no_fruits:
-                    self.steps_used = step_num
 
                 # Give all close agents a reward
                 for agent in close_agents:
@@ -151,6 +150,9 @@ class Simulation:
 
                 # Only pick up 1 fruit per frame
                 break
+
+        if all([fruit.picked for fruit in self.fruits]):
+            self.steps_used = step_num
 
         # Give rewards after all agents have moved
         for agent in self.agents:
