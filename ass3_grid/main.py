@@ -1,4 +1,6 @@
 from sim import Simulation
+import matplotlib
+matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 from matplotlib import animation
 
@@ -16,7 +18,7 @@ with open("data.txt", "w") as f:
             height = 20,
         )
 
-        sim.run_episodes(no_episodes=1, max_steps_per_episode=300)
+        sim.run_episodes(no_episodes=100, max_steps_per_episode=300)
 
         sim.init_env()
 
