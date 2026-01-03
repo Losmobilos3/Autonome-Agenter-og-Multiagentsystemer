@@ -285,15 +285,21 @@ class Simulation:
         self.reward_text.set_text(f"Agent 0 Reward: {self.agents[0].reward:.2f}")
 
         # Save performance metrics
-        self.save_metrics()
+        if i >= 500:
+            self.save_metrics()
         
         # Return all updated plot objects (text patches and stems)
-        return (*self.fruit_level_patches, *self.agent_level_patches, *self.fruit_stems, self.reward_text) 
+        return (*self.fruit_level_patches, *self.agent_level_patches, *self.fruit_stems, self.reward_text)
     
 
     def save_metrics(self):
-        # TODO: ?
-        pass
+        if self.steps_used > 0:
+            performance = sum(self.total_fruits_collected) / self.steps_used
+        else:
+            performance = sum(self.total_fruits_collected) / 500
+
+        with open("SARL_data.txt", "a") as f:
+            f.write(f"{performance:.5f}, {self.total_fruits_collected[0]}, {self.total_fruits_collected[1]}\n")
 
     def save_prior_state(self):
         """Save the absolute prior state"""
