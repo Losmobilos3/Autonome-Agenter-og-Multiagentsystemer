@@ -300,13 +300,8 @@ class Simulation:
     
 
     def save_metrics(self):
-        if self.steps_used > 0:
-            performance = sum(self.total_fruits_collected) / self.steps_used
-        else:
-            performance = sum(self.total_fruits_collected) / FRAMES
-
         with open("MARL_data.txt", "a") as f:
-            f.write(f"{performance:.5f}, {self.total_fruits_collected[0]}, {self.total_fruits_collected[1]}\n")
+            f.write(f"{sum(self.total_fruits_collected)}, {self.total_fruits_collected[0]}, {self.total_fruits_collected[1]}\n")
 
     def save_prior_state(self) -> dict:
         """Save the absolute prior state"""
